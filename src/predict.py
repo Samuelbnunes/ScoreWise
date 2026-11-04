@@ -1,5 +1,5 @@
 """Único ponto de inferência (ADR-07): validação, PD calibrada, decisão em 3 faixas e reason codes."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Literal
 
@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from config import INPUT_FIELDS, MODEL_PATH
-from explain import reason_codes, shap_values_for
+from explain import reason_codes_with_impact, shap_values_for
 
 Decision = Literal["APROVAR", "REVISAR", "RECUSAR"]
 
@@ -35,6 +35,7 @@ class PredictionResult:
     decision: Decision
     reasons: list[str]  # top-3, só fatores que AUMENTAM o risco
     model_version: str
+    reason_impacts: list[float] = field(default_factory=list)  # SHAP (log-odds) de cada motivo, p/ a UI
 
 
 @lru_cache(maxsize=1)
@@ -95,9 +96,10 @@ def predict_batch(df: pd.DataFrame) -> pd.DataFrame:
         },
         index=df.index,
     )
-    reasons = [reason_codes(r, names, values=v) for r, v in zip(sv, Xt.to_numpy())]
+    reasons = [reason_codes_with_impact(r, names, values=v) for r, v in zip(sv, Xt.to_numpy())]
     for i in range(3):
-        out[f"reason_{i + 1}"] = [r[i] if len(r) > i else "" for r in reasons]
+        out[f"reason_{i + 1}"] = [r[i][0] if len(r) > i else "" for r in reasons]
+        out[f"impact_{i + 1}"] = [r[i][1] if len(r) > i else 0.0 for r in reasons]
     return out
 
 
@@ -110,4 +112,5 @@ def predict_one(d: dict) -> PredictionResult:
         decision=r["decision"],
         reasons=[r[f"reason_{i}"] for i in (1, 2, 3) if r[f"reason_{i}"]],
         model_version=b["model_version"],
+        reason_impacts=[float(r[f"impact_{i}"]) for i in (1, 2, 3) if r[f"reason_{i}"]],
     )

@@ -66,13 +66,14 @@ FLAG_FEATURES = {"renda_ausente", "atraso_codigo_especial", "teve_atraso_grave"}
 NOT_DISPLAYED_AS_REASON = {"idade"}
 
 
-def reason_codes(shap_row, feature_names, top: int = 3, values=None) -> list[str]:
+def reason_codes_with_impact(shap_row, feature_names, top: int = 3, values=None) -> list[tuple[str, float]]:
     """Só contribuições POSITIVAS (que aumentam o risco), em ordem decrescente; textos repetidos
     (ex.: renda_mensal e renda_per_capita) aparecem uma vez. Com `values`, flags binárias só
     entram se estiverem ATIVAS: o SHAP de uma flag = 0 pode ser positivo em relação à média da
-    população, e o motivo \"Renda não informada\" seria falso para quem informou a renda."""
+    população, e o motivo "Renda não informada" seria falso para quem informou a renda.
+    Devolve (texto, SHAP em log-odds do fator escolhido)."""
     order = np.argsort(-np.asarray(shap_row))
-    reasons: list[str] = []
+    reasons: list[tuple[str, float]] = []
     for i in order:
         if shap_row[i] <= 0 or len(reasons) == top:
             break
@@ -81,9 +82,13 @@ def reason_codes(shap_row, feature_names, top: int = 3, values=None) -> list[str
         if values is not None and feature_names[i] in FLAG_FEATURES and values[i] != 1:
             continue
         text = REASON_TEXTS.get(feature_names[i])
-        if text and text not in reasons:
-            reasons.append(text)
+        if text and text not in [r[0] for r in reasons]:
+            reasons.append((text, float(shap_row[i])))
     return reasons
+
+
+def reason_codes(shap_row, feature_names, top: int = 3, values=None) -> list[str]:
+    return [t for t, _ in reason_codes_with_impact(shap_row, feature_names, top, values)]
 
 
 def main():

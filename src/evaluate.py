@@ -262,6 +262,31 @@ def main():
     ax.set_title(f"Matriz de confusão · corte {s['threshold']:.3f} (teste)")
     _save(fig, "confusion.png")
 
+    # --- pontos das curvas para o app (regra de ouro: o app só lê, nunca recalcula) ---
+    def thin(*arrs, n=250):
+        idx = np.unique(np.linspace(0, len(arrs[0]) - 1, min(n, len(arrs[0]))).astype(int))
+        return [np.round(np.asarray(a)[idx], 5).tolist() for a in arrs]
+
+    curves = {"model": best, "roc": {}, "pr": {}, "calibration": {}, "profit": {}, "ks": {}}
+    for n in raw:
+        fpr, tpr, _ = roc_curve(y, raw[n])
+        curves["roc"][n] = dict(zip(("fpr", "tpr"), thin(fpr, tpr)), auc=float(results[n]["auc"]))
+        pr, rc, _ = precision_recall_curve(y, raw[n])
+        curves["pr"][n] = dict(zip(("recall", "precision"), thin(rc, pr)), pr_auc=float(results[n]["pr_auc"]))
+    curves["pr"]["baseline"] = float(y.mean())
+    xs_t, g_t, b_t = thin(xs, cdf_good, cdf_bad)
+    curves["ks"] = {"x": xs_t, "cdf_good": g_t, "cdf_bad": b_t, "ks": float(abs(cdf_good[k] - cdf_bad[k])),
+                    "x_ks": float(xs[k])}
+    for key, arr in (("before", raw[best]), ("after", cal[best])):
+        frac, mean_p = calibration_curve(y, arr, n_bins=10, strategy="quantile")
+        curves["calibration"][key] = {"mean_pred": np.round(mean_p, 5).tolist(), "frac_pos": np.round(frac, 5).tolist()}
+    curves["profit"] = {
+        "thresholds": THRESHOLD_GRID.tolist(),
+        "profit_per_proposal": np.round(per, 5).tolist(),
+        "marks": {k_: {"corte": float(rules[k_]), "lucro": float(rules_test[k_]["profit_per_proposal"])} for k_ in rules},
+    }
+    (METRICS_DIR / "curves.json").write_text(json.dumps(curves, ensure_ascii=False), encoding="utf-8")
+
     print(open(METRICS_DIR / "test_results.md", encoding="utf-8").read())
     print(f"Referência: aprovar todos = {always_approve/len(y):.4f} | recusar todos = {always_reject/len(y):.4f} (lucro/proposta)")
 
