@@ -573,10 +573,10 @@ ScoreWise/
 - **DoD:** notebook roda do início ao fim; 4+ figuras exportadas; 3 achados anotados para os slides.
 
 #### E2. Features · 1 h 30
-- [ ] **T2.1** `add_derived` (5 features da seção 6.3) · 20 min
-- [ ] **T2.2** `QuantileClipper` (fit/transform) · 20 min
-- [ ] **T2.3** `build_preprocessor(kind="tree"|"linear")` · 30 min
-- [ ] **T2.4** `tests/test_features.py` (sem NaN, flags, percentis só do treino) · 20 min
+- [x] **T2.1** `add_derived` (5 features da seção 6.3) · 20 min
+- [x] **T2.2** `QuantileClipper` (fit/transform) · 20 min
+- [x] **T2.3** `build_preprocessor(kind="tree"|"linear")` · 30 min
+- [x] **T2.4** `tests/test_features.py` (sem NaN, flags, percentis só do treino) · 20 min
 - **DoD:** `preprocessor.fit_transform(X_train)` sem NaN; testes passando.
 
 #### E3. Modelagem · 2 h
