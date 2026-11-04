@@ -105,6 +105,10 @@ def main():
 
     plt.figure()
     shap.summary_plot(sv, Xt_pt, show=False, max_display=16)
+    plt.gca().set_xlabel("Impacto no risco (SHAP, log-odds)")
+    cbar = plt.gcf().axes[-1]  # rótulos em português (o shap só gera em inglês)
+    cbar.set_ylabel("Valor da variável")
+    cbar.set_yticklabels(["Baixo", "Alto"])
     plt.title("SHAP: impacto de cada variável no risco (log-odds)")
     plt.tight_layout()
     plt.savefig(FIGURES_DIR / "shap_summary.png", dpi=150)
@@ -112,6 +116,7 @@ def main():
 
     plt.figure()
     shap.summary_plot(sv, Xt_pt, plot_type="bar", show=False, max_display=16)
+    plt.gca().set_xlabel("Importância média |SHAP| (log-odds)")
     plt.title("SHAP: importância média (|SHAP|)")
     plt.tight_layout()
     plt.savefig(FIGURES_DIR / "shap_bar.png", dpi=150)

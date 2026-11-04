@@ -22,6 +22,14 @@ python src\train.py; python src\evaluate.py; python src\explain.py; python src\f
 streamlit run app\streamlit_app.py
 ```
 
+## Demo
+
+Seis páginas (Início, Simulador, Desempenho, Explicabilidade, Equidade, Sobre). No **Simulador**, use os perfis rápidos (Bom, Limítrofe, Arriscado) e clique em *Analisar proposta*.
+
+![Simulador](reports/screenshots/simulador_limitrofe_1366x768_viewport.png)
+
+Mais capturas (1366×768 e 1920×1080) em `reports/screenshots/`; para regenerá-las: `pip install playwright`, `playwright install chromium` e `python tools/screenshots.py` com o app rodando na porta 8601.
+
 Testes: `pytest` (rode depois do treino; `test_predict.py` precisa do `model.joblib`).
 
 ## O que cada comando gera
@@ -43,7 +51,8 @@ O treino é reprodutível: `random_state=42` e duas execuções geram o mesmo `c
 data/raw/               cs-training.csv (fora do git)
 notebooks/01_eda.ipynb  EDA (figuras em reports/figures/eda_*.png)
 src/                    config, data, features, train, evaluate, explain, fairness, predict
-app/streamlit_app.py    demo
+app/                    demo (streamlit_app.py, pages/, ui/)
+tools/screenshots.py    capturas de tela da demo (Playwright, dev)
 models/                 model.joblib (gerado, fora do git)
 reports/                figures/, metrics/, relatorio.md, slides/roteiro.md
 tests/                  test_data, test_features, test_predict

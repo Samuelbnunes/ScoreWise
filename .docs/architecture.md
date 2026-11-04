@@ -161,6 +161,7 @@ O corte empírico (varredura na seção 6.4) deve ficar próximo de 0,286. Se n�
 | ADR-11 | MLflow para rastrear experimentos | Planilha | Padrão de mercado, roda local | F3 |
 | ADR-12 | FastAPI + Pydantic para servir | Flask | Validação de contrato e OpenAPI automáticos | F3 |
 | ADR-13 | `idade` permanece no modelo, mas **não é exibida como reason code** (`NOT_DISPLAYED_AS_REASON` em `explain.py`); entra o próximo fator positivo | Remover `idade` do modelo; exibir a idade como motivo | Q5 (`stats.json`): remover a idade custa 0,0036 de AUC, não altera o lucro de forma detectável e reduz o gap de TPR só de 6,3 para 5,3 p.p. (proxies persistem). Dizer ao cliente que a recusa se deve ao "perfil etário" é problemático ética e juridicamente. O SHAP continua mostrando a idade ao analista, por transparência | F1 |
+| ADR-14 | Redesign da UI: `st.navigation` com navegação própria, tema claro fixo, Plotly (única dependência nova) e componentes HTML em `app/ui/` | Streamlit padrão (abas + `st.pyplot`) | Aparência de produto e legibilidade em projetor; gráficos interativos sem recalcular nada (curvas vêm de `curves.json`). Limites: a fonte Inter vem do Google Fonts (sem internet cai no fallback do sistema), `number_input` não localiza a vírgula decimal e AppTest testa páginas via `switch_page` | F1 |
 
 ---
 
@@ -334,15 +335,19 @@ Roda **uma vez** sobre o teste e gera:
 - `predict_one(d) -> PredictionResult` e `predict_batch(df)`.
 - Usado pelo Streamlit (F1) e pela API (F3). **Nenhuma lógica de modelo fora daqui.**
 
-### 6.9 `app/streamlit_app.py`
-| Área | Conteúdo |
+### 6.9 App Streamlit (`app/`, redesign: ADR-14)
+Entrypoint `app/streamlit_app.py` (só `st.navigation`, navegação própria no topo), tema em `.streamlit/config.toml` (claro fixo, alto contraste), tokens/CSS/logo em `app/ui/theme.py`, HTML e formatação pt-BR em `app/ui/components.py`, gráficos Plotly em `app/ui/charts.py`.
+
+| Página | Conteúdo |
 |---|---|
-| Sidebar | Seletor de perfil pré-definido (Bom / Limítrofe / Arriscado / Manual) + versão do modelo |
-| Aba **Análise** | Formulário → botão **Analisar** → card com decisão (cor), PD (barra com o corte marcado), score (F2) e 3 motivos |
-| Aba **Desempenho** | Tabela comparativa + ROC, calibração e curva de lucro (lidas de `reports/`) |
-| Aba **Explicabilidade** | SHAP summary + waterfall do caso atual |
-| Aba **Equidade** | Tabela e gráfico por faixa etária |
-| Rodapé | "Protótipo acadêmico. Premissas de custo ilustrativas." |
+| **Início** | Hero + CTA, 4 KPIs (AUC com IC 95%, KS, taxa de aprovação, ganho vs. aprovar todos) e "como funciona" em 3 passos |
+| **Simulador** | Perfis rápidos; formulário em 3 blocos; cartão de decisão (ícone + texto), gauge da PD com as 3 faixas e o corte, 3 motivos com barra de participação (SHAP), waterfall SHAP interativo, parecer `.md` para download e histórico da sessão |
+| **Desempenho** | KPIs, abas ROC / PR / KS / calibração / lucro × corte (de `curves.json`), tabela comparativa com IC e sensibilidade de custos (de `stats.json`) |
+| **Explicabilidade** | Importância global (`explain.json`), beeswarm e a política de motivos (ADR-13) |
+| **Equidade** | Barras por faixa etária, DI × 0,8, tabela e ablação sem idade (`fairness.json`, `stats.json`) |
+| **Sobre** | Metodologia, premissas de custo, LGPD (conferir a norma), limitações L1–L6, roadmap e créditos |
+
+Regras: nenhuma lógica de modelo no app (tudo via `predict.py`/`explain.py`); todo número exibido é lido de `reports/metrics/*.json` (`evaluate.py` salva as curvas em `curves.json`); decisão nunca só por cor; a renda está na unidade do dataset (não é R$); aviso de protótipo no rodapé e em Sobre. `PredictionResult` ganhou o campo opcional `reason_impacts` (SHAP de cada motivo, para a barra do chip).
 
 **Perfis pré-definidos** (valores ajustados após o treino, T6.5: PD 0,005 → APROVAR; 0,254 → REVISAR; 0,688 → RECUSAR):
 | Campo | Bom | Limítrofe | Arriscado |
@@ -617,6 +622,14 @@ ScoreWise/
 - [x] **T6.4** Streamlit: abas Desempenho, Explicabilidade e Equidade (lendo de `reports/`) · 20 min
 - [x] **T6.5** Calibrar os perfis para caírem em APROVAR/REVISAR/RECUSAR · 10 min
 - **DoD:** `streamlit run app/streamlit_app.py` abre sem erro e os 3 perfis dão as 3 decisões.
+
+#### E6b. Redesign da UI (ADR-14) · feito
+- [x] **U1** `curves.json` no `evaluate.py`, `reason_impacts` no `predict.py` (aditivo), `plotly` fixado
+- [x] **U2** Tema, componentes e gráficos (`app/ui/`, `.streamlit/config.toml`)
+- [x] **U3** Simulador (formulário, decisão, gauge, motivos, waterfall, parecer, histórico)
+- [x] **U4** Início, Desempenho, Explicabilidade, Equidade, Sobre
+- [x] **U5** `tests/test_app.py` (AppTest), screenshots 1366×768 e 1920×1080 (`tools/screenshots.py` → `reports/screenshots/`)
+- **DoD:** `pytest` passa (38 testes) e o app abre com o mesmo comando.
 
 #### E7. Entrega · 2 h 30
 - [x] **T7.1** `README.md`: objetivo, 4 comandos (instalar, baixar, treinar, demo), estrutura · 20 min
