@@ -1,0 +1,58 @@
+{
+  "corte": 0.27,
+  "n_sem_idade_excluidos": 0,
+  "grupo_referencia": "60+",
+  "por_faixa": [
+    {
+      "faixa": "<30",
+      "n": 1781,
+      "taxa_mau_real": 0.11903425042111174,
+      "taxa_aprovacao": 0.8680516563728242,
+      "tpr_bom_aprovado": 0.9235181644359465,
+      "fpr_mau_aprovado": 0.45754716981132076,
+      "inadimplencia_aprovados": 0.06274256144890039,
+      "disparate_impact": 0.8900914832586754,
+      "alerta_di_lt_0.8": false,
+      "equal_opp_diff_vs_ref": -0.0631427183316492
+    },
+    {
+      "faixa": "30–44",
+      "n": 7869,
+      "taxa_mau_real": 0.09073579870377431,
+      "taxa_aprovacao": 0.9098996060490533,
+      "tpr_bom_aprovado": 0.9468902865129281,
+      "fpr_mau_aprovado": 0.5392156862745098,
+      "inadimplencia_aprovados": 0.05377094972067039,
+      "disparate_impact": 0.9330019521520739,
+      "alerta_di_lt_0.8": false,
+      "equal_opp_diff_vs_ref": -0.03977059625466761
+    },
+    {
+      "faixa": "45–59",
+      "n": 10698,
+      "taxa_mau_real": 0.0716021686296504,
+      "taxa_aprovacao": 0.9342867825761825,
+      "tpr_bom_aprovado": 0.9605316149818768,
+      "fpr_mau_aprovado": 0.5939947780678851,
+      "inadimplencia_aprovados": 0.04552276138069034,
+      "disparate_impact": 0.9580083189600425,
+      "alerta_di_lt_0.8": false,
+      "equal_opp_diff_vs_ref": -0.02612926778571889
+    },
+    {
+      "faixa": "60+",
+      "n": 9531,
+      "taxa_mau_real": 0.032525443290315814,
+      "taxa_aprovacao": 0.975238694785437,
+      "tpr_bom_aprovado": 0.9866608827675957,
+      "fpr_mau_aprovado": 0.635483870967742,
+      "inadimplencia_aprovados": 0.021194190424959656,
+      "disparate_impact": 1.0,
+      "alerta_di_lt_0.8": false,
+      "equal_opp_diff_vs_ref": 0.0
+    }
+  ],
+  "disparate_impact_min": 0.8900914832586754,
+  "equal_opportunity_gap_max": 0.0631427183316492,
+  "aprovacao_global": 0.9369791492352488
+}

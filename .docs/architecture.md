@@ -602,10 +602,10 @@ ScoreWise/
 - **DoD:** 6 figuras e `test_results.json` gerados; o teste foi usado só aqui.
 
 #### E5. Explicabilidade e equidade · 2 h
-- [ ] **T5.1** SHAP summary e bar (amostra de 2.000) · 30 min
-- [ ] **T5.2** `reason_codes` + mapa `REASON_TEXTS` · 30 min
-- [ ] **T5.3** `fairness.py`: métricas por faixa + DI + equal opportunity · 40 min
-- [ ] **T5.4** Figura de equidade + 1 parágrafo de interpretação · 20 min
+- [x] **T5.1** SHAP summary e bar (amostra de 2.000) · 30 min
+- [x] **T5.2** `reason_codes` + mapa `REASON_TEXTS` · 30 min
+- [x] **T5.3** `fairness.py`: métricas por faixa + DI + equal opportunity · 40 min
+- [x] **T5.4** Figura de equidade + 1 parágrafo de interpretação · 20 min
 - [ ] ⭐ **T5.5** Waterfall SHAP dos 3 perfis
 - **DoD:** toda recusa no teste tem 3 motivos não vazios; `fairness.json` gerado.
 

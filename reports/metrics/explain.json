@@ -1,0 +1,63 @@
+{
+  "shap_amostra": 2000,
+  "importancia_media_abs_shap": {
+    "utilizacao_limite": 0.7289084837188472,
+    "total_atrasos": 0.5174253239249628,
+    "idade": 0.2986968063911398,
+    "linhas_abertas": 0.19366171340946184,
+    "razao_divida": 0.1399398904192324,
+    "renda_mensal": 0.12525157132021897,
+    "divida_mensal": 0.0940430315744637,
+    "financ_imobiliarios": 0.09194266835297642,
+    "atrasos_90": 0.07705454656761401,
+    "renda_per_capita": 0.06409225443399931,
+    "atrasos_60_89": 0.04339783655391478,
+    "atrasos_30_59": 0.03145568390003954,
+    "dependentes": 0.025595233154871267,
+    "renda_ausente": 0.01191937148579391,
+    "teve_atraso_grave": 0.010253358900614943,
+    "atraso_codigo_especial": 0.006315686649552568
+  },
+  "reason_codes_recusas_teste": {
+    "recusar_pd_ge_corte": {
+      "n_recusas": 1883,
+      "com_3_motivos": 1883,
+      "com_menos_de_3": 0,
+      "com_0_motivos": 0
+    },
+    "recusar_faixa_pd_gt_corte_mais_delta": {
+      "n_recusas": 1777,
+      "com_3_motivos": 1777,
+      "com_menos_de_3": 0,
+      "com_0_motivos": 0
+    }
+  },
+  "exemplos": [
+    {
+      "pd": 1.0,
+      "motivos": [
+        "Quantidade elevada de atrasos no histórico",
+        "Uso elevado do limite de crédito disponível",
+        "Histórico de atrasos superiores a 90 dias"
+      ]
+    },
+    {
+      "pd": 0.4261744966442953,
+      "motivos": [
+        "Quantidade elevada de atrasos no histórico",
+        "Uso elevado do limite de crédito disponível",
+        "Atrasos recentes entre 60 e 89 dias"
+      ]
+    },
+    {
+      "pd": 0.31599962025667655,
+      "motivos": [
+        "Uso elevado do limite de crédito disponível",
+        "Quantidade elevada de atrasos no histórico",
+        "Renda baixa em relação ao perfil"
+      ]
+    }
+  ],
+  "corte": 0.27,
+  "review_band": 0.05
+}
