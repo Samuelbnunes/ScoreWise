@@ -16,15 +16,19 @@ from config import FEATURE_LABELS_PT, FIGURES_DIR, METRICS_DIR, MODEL_PATH, REAS
 from data import clean_static, deduplicate, load_raw, split
 
 SHAP_SAMPLE = 2000
+_EXPLAINERS: dict = {}
 
 
 def shap_values_for(bundle: dict, X: pd.DataFrame):
     """Retorna (SHAP em log-odds, X transformado). Ponto único de cálculo, reusado pelo predict.py."""
     pipe = bundle["raw_pipeline"]
     Xt = pipe[:-1].transform(X)
+    if id(pipe[-1]) not in _EXPLAINERS:  # construir o explainer é o passo lento
+        _EXPLAINERS[id(pipe[-1])] = shap.TreeExplainer(pipe[-1])
+    explainer = _EXPLAINERS[id(pipe[-1])]
     with warnings.catch_warnings():  # aviso informativo do shap sobre o formato de saída do LightGBM
         warnings.simplefilter("ignore", UserWarning)
-        sv = shap.TreeExplainer(pipe[-1]).shap_values(Xt)
+        sv = explainer.shap_values(Xt)
     if isinstance(sv, list):  # versões antigas devolvem [classe0, classe1]
         sv = sv[1]
     sv = np.asarray(sv)
@@ -33,14 +37,44 @@ def shap_values_for(bundle: dict, X: pd.DataFrame):
     return sv, Xt
 
 
-def reason_codes(shap_row, feature_names, top: int = 3) -> list[str]:
+def explanation_for(bundle: dict, X: pd.DataFrame) -> shap.Explanation:
+    """Explanation da 1ª linha de X (nomes em PT), pronta para o waterfall. Unidade: log-odds do modelo cru."""
+    sv, Xt = shap_values_for(bundle, X.iloc[:1])
+    base = float(np.ravel(_EXPLAINERS[id(bundle["raw_pipeline"][-1])].expected_value)[-1])
+    return shap.Explanation(
+        values=sv[0],
+        base_values=base,
+        data=Xt.iloc[0].to_numpy(),
+        feature_names=[FEATURE_LABELS_PT.get(c, c) for c in Xt.columns],
+    )
+
+
+def waterfall_figure(expl: shap.Explanation, title: str = ""):
+    plt.figure()
+    shap.plots.waterfall(expl, max_display=10, show=False)
+    fig = plt.gcf()
+    fig.set_size_inches(8, 5)
+    if title:
+        plt.title(title)
+    fig.tight_layout()
+    return fig
+
+
+FLAG_FEATURES = {"renda_ausente", "atraso_codigo_especial", "teve_atraso_grave"}
+
+
+def reason_codes(shap_row, feature_names, top: int = 3, values=None) -> list[str]:
     """Só contribuições POSITIVAS (que aumentam o risco), em ordem decrescente; textos repetidos
-    (ex.: renda_mensal e renda_per_capita) aparecem uma vez."""
+    (ex.: renda_mensal e renda_per_capita) aparecem uma vez. Com `values`, flags binárias só
+    entram se estiverem ATIVAS: o SHAP de uma flag = 0 pode ser positivo em relação à média da
+    população, e o motivo \"Renda não informada\" seria falso para quem informou a renda."""
     order = np.argsort(-np.asarray(shap_row))
     reasons: list[str] = []
     for i in order:
         if shap_row[i] <= 0 or len(reasons) == top:
             break
+        if values is not None and feature_names[i] in FLAG_FEATURES and values[i] != 1:
+            continue
         text = REASON_TEXTS.get(feature_names[i])
         if text and text not in reasons:
             reasons.append(text)
@@ -82,8 +116,9 @@ def main():
     stats = {}
     examples = []
     for label, mask in (("recusar_pd_ge_corte", pd_te >= t), ("recusar_faixa_pd_gt_corte_mais_delta", pd_te > t + delta)):
-        sv_r, _ = shap_values_for(bundle, X_te[mask])
-        n_reasons = np.array([len(reason_codes(r, names)) for r in sv_r])
+        sv_r, Xt_r = shap_values_for(bundle, X_te[mask])
+        vals_r = Xt_r.to_numpy()
+        n_reasons = np.array([len(reason_codes(r, names, values=v)) for r, v in zip(sv_r, vals_r)])
         stats[label] = {
             "n_recusas": int(mask.sum()),
             "com_3_motivos": int((n_reasons == 3).sum()),
@@ -92,7 +127,17 @@ def main():
         }
         if label == "recusar_pd_ge_corte":
             for k in np.argsort(-pd_te[mask])[[0, len(sv_r) // 2, -1]]:
-                examples.append({"pd": float(pd_te[mask][k]), "motivos": reason_codes(sv_r[k], names)})
+                examples.append({"pd": float(pd_te[mask][k]), "motivos": reason_codes(sv_r[k], names, values=vals_r[k])})
+
+    # T5.5: waterfall dos 3 perfis da demo (import tardio: predict importa este módulo)
+    from config import PROFILES
+    from predict import _model_frame, _validate_frame
+
+    for nome, perfil in PROFILES.items():
+        Xp = _model_frame(_validate_frame(pd.DataFrame([perfil])), bundle)
+        fig = waterfall_figure(explanation_for(bundle, Xp), f"Perfil {nome}")
+        fig.savefig(FIGURES_DIR / f"shap_waterfall_{nome.lower().replace('í', 'i')}.png", dpi=150)
+        plt.close(fig)
 
     out = {
         "shap_amostra": SHAP_SAMPLE,

@@ -28,6 +28,30 @@ COST_MATRIX = {
 
 KAGGLE_COMPETITION = "GiveMeSomeCredit"
 
+# Campos de entrada da demo/API (nomes curtos em PT; o código 96/98 não é informável pelo usuário).
+INPUT_FIELDS = [
+    "idade",
+    "renda_mensal",
+    "razao_divida",
+    "utilizacao_limite",
+    "linhas_abertas",
+    "financ_imobiliarios",
+    "atrasos_30_59",
+    "atrasos_60_89",
+    "atrasos_90",
+    "dependentes",
+]
+
+# Perfis da demo (T6.5): ajustados para cair em APROVAR / REVISAR / RECUSAR; o modelo não é tocado.
+PROFILES = {
+    "Bom": dict(idade=62, renda_mensal=9000, razao_divida=0.20, utilizacao_limite=0.10, linhas_abertas=8,
+                financ_imobiliarios=1, atrasos_30_59=0, atrasos_60_89=0, atrasos_90=0, dependentes=2),
+    "Limítrofe": dict(idade=33, renda_mensal=3500, razao_divida=0.55, utilizacao_limite=0.85, linhas_abertas=6,
+                      financ_imobiliarios=0, atrasos_30_59=2, atrasos_60_89=0, atrasos_90=0, dependentes=1),
+    "Arriscado": dict(idade=24, renda_mensal=1800, razao_divida=1.10, utilizacao_limite=0.98, linhas_abertas=4,
+                      financ_imobiliarios=0, atrasos_30_59=2, atrasos_60_89=1, atrasos_90=2, dependentes=0),
+}
+
 # Colunas originais esperadas no CSV (além do índice sem nome).
 RAW_COLUMNS = [
     "SeriousDlqin2yrs",

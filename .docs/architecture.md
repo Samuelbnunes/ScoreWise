@@ -343,16 +343,16 @@ Roda **uma vez** sobre o teste e gera:
 | Aba **Equidade** | Tabela e gráfico por faixa etária |
 | Rodapé | "Protótipo acadêmico. Premissas de custo ilustrativas." |
 
-**Perfis pré-definidos** (valores iniciais, ajustar após o treino para que cada um caia na faixa esperada):
+**Perfis pré-definidos** (valores ajustados após o treino, T6.5: PD 0,005 → APROVAR; 0,254 → REVISAR; 0,688 → RECUSAR):
 | Campo | Bom | Limítrofe | Arriscado |
 |---|---|---|---|
-| idade | 48 | 33 | 24 |
+| idade | 62 | 33 | 24 |
 | renda_mensal | 9.000 | 3.500 | 1.800 |
 | razao_divida | 0,20 | 0,55 | 1,10 |
-| utilizacao_limite | 0,10 | 0,65 | 0,98 |
+| utilizacao_limite | 0,10 | 0,85 | 0,98 |
 | linhas_abertas | 8 | 6 | 4 |
 | financ_imobiliarios | 1 | 0 | 0 |
-| atrasos 30–59 / 60–89 / 90+ | 0 / 0 / 0 | 1 / 0 / 0 | 2 / 1 / 2 |
+| atrasos 30–59 / 60–89 / 90+ | 0 / 0 / 0 | 2 / 0 / 0 | 2 / 1 / 2 |
 | dependentes | 2 | 1 | 0 |
 
 > Micro task obrigatória: rodar os 3 perfis depois do treino e confirmar que caem em APROVAR / REVISAR / RECUSAR. Se não caírem, ajustar os valores (e não o modelo).
@@ -606,15 +606,15 @@ ScoreWise/
 - [x] **T5.2** `reason_codes` + mapa `REASON_TEXTS` · 30 min
 - [x] **T5.3** `fairness.py`: métricas por faixa + DI + equal opportunity · 40 min
 - [x] **T5.4** Figura de equidade + 1 parágrafo de interpretação · 20 min
-- [ ] ⭐ **T5.5** Waterfall SHAP dos 3 perfis
+- [x] ⭐ **T5.5** Waterfall SHAP dos 3 perfis
 - **DoD:** toda recusa no teste tem 3 motivos não vazios; `fairness.json` gerado.
 
 #### E6. Inferência e demo · 2 h
-- [ ] **T6.1** `predict.py` (load, validate, predict_one, 3 faixas) · 30 min
-- [ ] **T6.2** `tests/test_predict.py` · 15 min
-- [ ] **T6.3** Streamlit: aba Análise + perfis na sidebar · 45 min
-- [ ] **T6.4** Streamlit: abas Desempenho, Explicabilidade e Equidade (lendo de `reports/`) · 20 min
-- [ ] **T6.5** Calibrar os perfis para caírem em APROVAR/REVISAR/RECUSAR · 10 min
+- [x] **T6.1** `predict.py` (load, validate, predict_one, 3 faixas) · 30 min
+- [x] **T6.2** `tests/test_predict.py` · 15 min
+- [x] **T6.3** Streamlit: aba Análise + perfis na sidebar · 45 min
+- [x] **T6.4** Streamlit: abas Desempenho, Explicabilidade e Equidade (lendo de `reports/`) · 20 min
+- [x] **T6.5** Calibrar os perfis para caírem em APROVAR/REVISAR/RECUSAR · 10 min
 - **DoD:** `streamlit run app/streamlit_app.py` abre sem erro e os 3 perfis dão as 3 decisões.
 
 #### E7. Entrega · 2 h 30
