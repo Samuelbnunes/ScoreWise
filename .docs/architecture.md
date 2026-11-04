@@ -151,7 +151,7 @@ O corte empírico (varredura na seção 6.4) deve ficar próximo de 0,286. Se n�
 | ADR-01 | Split estratificado 80/20 + CV 5-fold | Split temporal | Sem coluna de data | F1 |
 | ADR-02 | LightGBM como modelo principal | XGBoost/CatBoost | Rápido, nativo com NaN, bom em tabular; os outros vão para a F2 | F1 |
 | ADR-03 | Desbalanceamento via `class_weight` + corte por custo | SMOTE | SMOTE distorce probabilidades e cria vazamento se feito fora do Pipeline | F1 |
-| ADR-04 | Calibração isotônica com `CalibratedClassifierCV(cv=5)` | Platt | ~120 mil linhas é volume suficiente para a isotônica; Platt fica como comparação | F1 |
+| ADR-04 | Calibração isotônica (`IsotonicRegression(out_of_bounds="clip")`) ajustada sobre as predições OOF cruas da CV 5-fold | `CalibratedClassifierCV(cv=5)` dentro de `cross_val_predict` (25 treinos aninhados); Platt | Um único conjunto de 5 treinos gera métricas, OOF e calibrador; ~120 mil linhas é volume suficiente para a isotônica; Platt fica como comparação (F2) | F1 |
 | ADR-05 | SHAP sobre o modelo **não calibrado** | SHAP no calibrado | O `TreeExplainer` exige árvore pura; a calibração é monotônica, então não muda a ordem dos fatores | F1 |
 | ADR-06 | Artefato único `model.joblib` com metadados | Arquivos soltos | Contrato único para demo, API e testes | F1 |
 | ADR-07 | `src/predict.py` como **único ponto de inferência** | Lógica duplicada no app | Demo e futura API usam o mesmo código | F1 |
@@ -179,7 +179,7 @@ data/raw/cs-training.csv
         ▼                                     │              │
   train.py: Pipeline(pre + modelo)            │              │
    ├─ CV 5-fold → métricas por fold           │              │
-   ├─ OOF probs → calibração → corte por custo│              │
+   ├─ OOF cruas → isotônica → corte por custo │              │
    └─ fit final no treino inteiro ◄───────────┘              │
         │                                                    │
         ▼                                                    ▼
@@ -205,9 +205,11 @@ Formulário Streamlit ─► predict.py::predict_one(dict)
 ### 5.3 Contrato do artefato `models/model.joblib`
 ```python
 {
-    "calibrated_model": CalibratedClassifierCV,  # usado para a PD
-    "raw_pipeline": Pipeline,                    # usado para o SHAP
-    "threshold": float,                          # corte por custo (OOF)
+    "best_name": str,                            # "lgbm"
+    "raw_pipeline": Pipeline,                    # PD = calibrator.predict(raw_pipeline.predict_proba(X)[:, 1]); também usado no SHAP
+    "calibrator": IsotonicRegression,            # ajustado sobre as OOF cruas do treino
+    "threshold": float,                          # corte por custo (OOF calibrado)
+    "thresholds": {"cost", "f1", "default_0.5", "theoretical"},
     "review_band": 0.05,                         # δ da revisão humana
     "feature_names_in": list[str],               # schema de entrada
     "feature_names_out": list[str],              # após o preprocessamento
@@ -267,9 +269,13 @@ Caminhos (`pathlib`), `SEED`, `TARGET`, `TEST_SIZE`, `COST_MATRIX`. **Adicionar:
    - `lgbm`: `LGBMClassifier(n_estimators=500, learning_rate=0.03, num_leaves=31, min_child_samples=100, subsample=0.8, subsample_freq=1, colsample_bytree=0.8, class_weight="balanced", random_state=42, verbose=-1)`
 3. CV 5-fold estratificada → AUC, Gini, KS, PR-AUC, Brier por fold (média ± desvio).
 4. Escolhe o melhor por AUC médio na CV.
-5. `CalibratedClassifierCV(best, method="isotonic", cv=5)` → OOF probs via `cross_val_predict`.
-6. **Corte por custo:** varre `t ∈ [0,01; 0,99]` (passo 0,005) sobre as OOF calibradas e escolhe `argmax(lucro)`. Registra também o corte teórico 0,286.
-7. Ajusta o modelo final no treino inteiro e salva o artefato (5.3) + `reports/metrics/cv_results.json`.
+   - A CV (5-fold estratificada, `shuffle=True`, seed 42) roda no pipeline cru e já devolve as **OOF probs cruas** de cada modelo (sem `CalibratedClassifierCV`).
+5. `IsotonicRegression(out_of_bounds="clip")` ajustada sobre (OOF cruas, `y_train`) = calibrador. PD = `calibrator.predict(raw.predict_proba(X)[:, 1])`.
+6. **Corte por custo:** varre `t ∈ [0,01; 0,99]` (passo 0,005) sobre `calibrador(OOF)` e escolhe `argmax(lucro)`. Registra também o corte teórico 0,286, o corte de F1 máximo e 0,5.
+7. Ajusta o pipeline cru final no treino inteiro e salva o artefato (5.3) + `models/candidates.joblib` (3 modelos, usado só pelo `evaluate.py`) + `reports/metrics/cv_results.json`.
+8. LightGBM com `n_jobs=-1`, `deterministic=True`, `force_row_wise=True` (métricas idênticas entre execuções).
+
+> Limitação: o corte é escolhido sobre OOF calibradas pelo mesmo calibrador ajustado nessas OOF (otimismo leve); o teste, intocado, é quem valida.
 
 > ⚠️ `class_weight="balanced"` desloca as probabilidades para cima. A calibração **corrige isso**; é por esse motivo que ela é obrigatória aqui, e não opcional.
 
@@ -580,19 +586,19 @@ ScoreWise/
 - **DoD:** `preprocessor.fit_transform(X_train)` sem NaN; testes passando.
 
 #### E3. Modelagem · 2 h
-- [ ] **T3.1** Candidatos dummy, logreg e lgbm em Pipelines · 20 min
-- [ ] **T3.2** CV 5-fold com AUC, Gini, KS, PR-AUC e Brier (média ± desvio) · 30 min
-- [ ] **T3.3** Calibração isotônica + OOF via `cross_val_predict` · 25 min
-- [ ] **T3.4** Varredura do corte por custo + comparação com 0,286 · 20 min
-- [ ] **T3.5** Fit final + salvar o artefato com todos os metadados (5.3) · 15 min
-- [ ] **T3.6** Salvar `reports/metrics/cv_results.json` · 10 min
+- [x] **T3.1** Candidatos dummy, logreg e lgbm em Pipelines · 20 min
+- [x] **T3.2** CV 5-fold com AUC, Gini, KS, PR-AUC e Brier (média ± desvio) · 30 min
+- [x] **T3.3** Calibrador isotônico sobre as OOF da CV (ajuste de arquitetura; sem `cross_val_predict` aninhado) · 25 min
+- [x] **T3.4** Varredura do corte por custo + comparação com 0,286 · 20 min
+- [x] **T3.5** Fit final + salvar o artefato com todos os metadados (5.3) · 15 min
+- [x] **T3.6** Salvar `reports/metrics/cv_results.json` · 10 min
 - **DoD:** `python src/train.py` gera o `model.joblib` do zero em < 5 min; duas execuções dão métricas idênticas.
 
 #### E4. Avaliação · 1 h 30
-- [ ] **T4.1** Métricas no teste para os 3 modelos → JSON + tabela `.md` · 20 min
-- [ ] **T4.2** Figuras: ROC, PR, KS, calibração · 30 min
-- [ ] **T4.3** Curva de lucro com as 4 marcações · 20 min
-- [ ] **T4.4** Matriz de confusão + taxa de aprovação + inadimplência da carteira aprovada · 20 min
+- [x] **T4.1** Métricas no teste para os 3 modelos → JSON + tabela `.md` · 20 min
+- [x] **T4.2** Figuras: ROC, PR, KS, calibração · 30 min
+- [x] **T4.3** Curva de lucro com as 4 marcações · 20 min
+- [x] **T4.4** Matriz de confusão + taxa de aprovação + inadimplência da carteira aprovada · 20 min
 - **DoD:** 6 figuras e `test_results.json` gerados; o teste foi usado só aqui.
 
 #### E5. Explicabilidade e equidade · 2 h

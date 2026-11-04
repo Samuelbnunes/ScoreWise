@@ -1,0 +1,128 @@
+{
+  "n_test": 29879,
+  "test_default_rate": 0.06700358111047894,
+  "best_model": "lgbm",
+  "models": {
+    "dummy": {
+      "auc": 0.5,
+      "gini": 0.0,
+      "ks": 0.0,
+      "pr_auc": 0.06700358111047894,
+      "brier_raw": 0.06251410126636343,
+      "brier_calibrated": 0.06251410126636343,
+      "auc_calibrated": 0.5,
+      "ks_calibrated": 0.0,
+      "at_cost_threshold": {
+        "threshold": 0.07,
+        "approval_rate": 1.0,
+        "default_rate_approved": 0.06700358111047894,
+        "profit_total": 17867.0,
+        "profit_per_proposal": 0.5979785133371264,
+        "tp_recusa_mau": 0,
+        "fp_recusa_bom": 0,
+        "fn_aprova_mau": 2002,
+        "tn_aprova_bom": 27877
+      }
+    },
+    "logreg": {
+      "auc": 0.859033781084217,
+      "gini": 0.718067562168434,
+      "ks": 0.5655293696510469,
+      "pr_auc": 0.39083709721315973,
+      "brier_raw": 0.1459354034578579,
+      "brier_calibrated": 0.049413761956461424,
+      "auc_calibrated": 0.8587753764333023,
+      "ks_calibrated": 0.5633384802233674,
+      "at_cost_threshold": {
+        "threshold": 0.275,
+        "approval_rate": 0.9375815790354429,
+        "default_rate_approved": 0.041622046119797244,
+        "profit_total": 19989.0,
+        "profit_per_proposal": 0.6689982931155661,
+        "tp_recusa_mau": 836,
+        "fp_recusa_bom": 1029,
+        "fn_aprova_mau": 1166,
+        "tn_aprova_bom": 26848
+      }
+    },
+    "lgbm": {
+      "auc": 0.8647870227129114,
+      "gini": 0.7295740454258228,
+      "ks": 0.5814714037263091,
+      "pr_auc": 0.403706606336863,
+      "brier_raw": 0.13630906033442056,
+      "brier_calibrated": 0.04888429319188488,
+      "auc_calibrated": 0.8646660133997365,
+      "ks_calibrated": 0.5796365273353471,
+      "at_cost_threshold": {
+        "threshold": 0.27,
+        "approval_rate": 0.9369791492352488,
+        "default_rate_approved": 0.04050578654093442,
+        "profit_total": 20177.0,
+        "profit_per_proposal": 0.6752903376953713,
+        "tp_recusa_mau": 868,
+        "fp_recusa_bom": 1015,
+        "fn_aprova_mau": 1134,
+        "tn_aprova_bom": 26862
+      }
+    }
+  },
+  "cut_rules_final_model": {
+    "padrao_0.5": {
+      "threshold": 0.5,
+      "approval_rate": 0.9817932327052444,
+      "default_rate_approved": 0.057064939492074314,
+      "profit_total": 19075.0,
+      "profit_per_proposal": 0.6384082465945982,
+      "tp_recusa_mau": 328,
+      "fp_recusa_bom": 216,
+      "fn_aprova_mau": 1674,
+      "tn_aprova_bom": 27661
+    },
+    "f1": {
+      "threshold": 0.21,
+      "approval_rate": 0.9079286455369993,
+      "default_rate_approved": 0.03435564730168092,
+      "profit_total": 19855.0,
+      "profit_per_proposal": 0.6645135379363433,
+      "tp_recusa_mau": 1070,
+      "fp_recusa_bom": 1681,
+      "fn_aprova_mau": 932,
+      "tn_aprova_bom": 26196
+    },
+    "custo": {
+      "threshold": 0.27,
+      "approval_rate": 0.9369791492352488,
+      "default_rate_approved": 0.04050578654093442,
+      "profit_total": 20177.0,
+      "profit_per_proposal": 0.6752903376953713,
+      "tp_recusa_mau": 868,
+      "fp_recusa_bom": 1015,
+      "fn_aprova_mau": 1134,
+      "tn_aprova_bom": 26862
+    },
+    "teorico_0.286": {
+      "threshold": 0.2857142857142857,
+      "approval_rate": 0.9369791492352488,
+      "default_rate_approved": 0.04050578654093442,
+      "profit_total": 20177.0,
+      "profit_per_proposal": 0.6752903376953713,
+      "tp_recusa_mau": 868,
+      "fp_recusa_bom": 1015,
+      "fn_aprova_mau": 1134,
+      "tn_aprova_bom": 26862
+    }
+  },
+  "baselines_policy": {
+    "aprovar_todos_profit_per_proposal": 0.5979785133371264,
+    "recusar_todos_profit_per_proposal": -0.9329964188895211
+  },
+  "cost_matrix": {
+    "approve_good": 1,
+    "approve_bad": -5,
+    "reject_good": -1,
+    "reject_bad": 0
+  },
+  "model_version": "0.1.0",
+  "data_sha256": "1bd46da486a5708c58c7b01a034fae2a13b327f6f7b62ea7ba4fe3b5824b24ac"
+}
