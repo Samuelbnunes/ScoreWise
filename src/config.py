@@ -121,7 +121,6 @@ REASON_TEXTS = {
     "renda_mensal": "Renda baixa em relação ao perfil",
     "renda_per_capita": "Renda baixa em relação ao perfil",
     "renda_ausente": "Renda não informada",
-    "idade": "Perfil etário associado a maior risco",
     "linhas_abertas": "Número de linhas de crédito abertas",
     # Fora da tabela 6.6: necessários para que toda recusa tenha 3 motivos (DoD do E5).
     "atraso_codigo_especial": "Registro de atraso com situação especial no histórico",

@@ -39,12 +39,12 @@ Para cada proposta, o ScoreWise retorna:
 ### 1.3 Perguntas de pesquisa (eixo acadêmico)
 | ID | Pergunta | Como responder | Fase |
 |---|---|---|---|
-| Q1 | Um modelo de *gradient boosting* supera a regressão logística de forma estatisticamente significativa? | AUC no teste + IC 95% por bootstrap pareado | F1 (AUC) / F2 (IC) |
+| Q1 | Um modelo de *gradient boosting* supera a regressão logística de forma estatisticamente significativa? | AUC no teste + IC 95% por bootstrap pareado | F1 (AUC) / F2 (IC): **feito** (`stats.py`) |
 | Q2 | Escolher o corte pelo custo gera mais valor que o corte padrão de 0,5 ou que o corte por F1? | Curva de lucro esperado | F1 |
 | Q3 | Quais variáveis concentram o poder de decisão? | SHAP global | F1 |
 | Q4 | O modelo trata faixas etárias de forma equitativa? | *Disparate impact* e *equal opportunity* | F1 |
-| Q5 | Retirar `age` do modelo reduz a disparidade? A que custo de AUC? | Ablação | F2 |
-| Q6 | A decisão é sensível às premissas de custo? | Análise de sensibilidade (−3, −5, −10) | F2 |
+| Q5 | Retirar `age` do modelo reduz a disparidade? A que custo de AUC? | Ablação | F2: **feito** (`stats.py`, só `idade`) |
+| Q6 | A decisão é sensível às premissas de custo? | Análise de sensibilidade (−3, −5, −10) | F2: **feito** (`stats.py`) |
 
 ### 1.4 Critérios de sucesso (metas, não resultados)
 | Critério | Meta | Observação |
@@ -160,6 +160,7 @@ O corte empírico (varredura na seção 6.4) deve ficar próximo de 0,286. Se n�
 | ADR-10 | Scripts em `src/` (sem pacote) | Pacote instalável | Simplicidade no MVP; vira pacote `scorewise` na F3 | F1→F3 |
 | ADR-11 | MLflow para rastrear experimentos | Planilha | Padrão de mercado, roda local | F3 |
 | ADR-12 | FastAPI + Pydantic para servir | Flask | Validação de contrato e OpenAPI automáticos | F3 |
+| ADR-13 | `idade` permanece no modelo, mas **não é exibida como reason code** (`NOT_DISPLAYED_AS_REASON` em `explain.py`); entra o próximo fator positivo | Remover `idade` do modelo; exibir a idade como motivo | Q5 (`stats.json`): remover a idade custa 0,0036 de AUC, não altera o lucro de forma detectável e reduz o gap de TPR só de 6,3 para 5,3 p.p. (proxies persistem). Dizer ao cliente que a recusa se deve ao "perfil etário" é problemático ética e juridicamente. O SHAP continua mostrando a idade ao analista, por transparência | F1 |
 
 ---
 
@@ -314,7 +315,7 @@ Roda **uma vez** sobre o teste e gera:
 | `razao_divida` | "Alto comprometimento da renda com dívidas" |
 | `renda_mensal` / `renda_per_capita` | "Renda baixa em relação ao perfil" |
 | `renda_ausente` | "Renda não informada" |
-| `idade` | "Perfil etário associado a maior risco" ⚠️ ver 7.3 |
+| `idade` | — (não exibido como motivo; ver ADR-13 e 7.3) |
 | `linhas_abertas` | "Número de linhas de crédito abertas" |
 
 - ⭐ `figures/shap_waterfall_<perfil>.png` para os 3 perfis da demo.
@@ -476,7 +477,7 @@ ScoreWise/
 │   ├── fairness.py              # F1
 │   ├── predict.py               # F1 (ponto único de inferência)
 │   ├── scorecard.py             # F2
-│   ├── stats.py                 # F2 (bootstrap, ablação)
+│   ├── stats.py                 # bootstrap, ablação sem idade, sensibilidade (T8.1–T8.4 feitos)
 │   └── monitoring.py            # F3 (PSI/CSI)
 ├── app/
 │   └── streamlit_app.py         # F1
@@ -636,10 +637,10 @@ ScoreWise/
 ### FASE 2: Rigor acadêmico (⬜ opcional)
 
 #### E8. Robustez estatística
-- [ ] **T8.1** IC 95% da AUC, KS e lucro no teste por bootstrap (1.000 reamostragens)
-- [ ] **T8.2** Bootstrap pareado lgbm × logreg (Q1): o IC da diferença contém 0?
-- [ ] **T8.3** Ablação: sem features derivadas; sem `idade` (Q5)
-- [ ] **T8.4** Sensibilidade da matriz de custos: perda de −3, −5 e −10 (Q6)
+- [x] **T8.1** IC 95% da AUC, KS e lucro no teste por bootstrap (1.000 reamostragens)
+- [x] **T8.2** Bootstrap pareado lgbm × logreg (Q1): o IC da diferença contém 0? (não contém: ΔAUC +0,0058 [0,0031; 0,0090])
+- [x] **T8.3** Ablação: ~~sem features derivadas~~ (pendente); sem `idade` (Q5) feito
+- [x] **T8.4** Sensibilidade da matriz de custos: perda de −3, −5 e −10 (Q6)
 - [ ] **T8.5** Curva de aprendizado (AUC × tamanho do treino)
 
 #### E9. Modelos adicionais

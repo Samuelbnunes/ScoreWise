@@ -48,3 +48,8 @@ def test_decide_respeita_as_tres_faixas():
     assert decide(0.10, 0.27, 0.05) == "APROVAR"
     assert decide(0.27, 0.27, 0.05) == "REVISAR"
     assert decide(0.40, 0.27, 0.05) == "RECUSAR"
+
+
+@pytest.mark.parametrize("perfil", list(PROFILES))
+def test_nenhum_motivo_exibido_menciona_idade(perfil):
+    assert not any("etário" in m for m in predict_one(PROFILES[perfil]).reasons)

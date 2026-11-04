@@ -61,6 +61,9 @@ def waterfall_figure(expl: shap.Explanation, title: str = ""):
 
 
 FLAG_FEATURES = {"renda_ausente", "atraso_codigo_especial", "teve_atraso_grave"}
+# ADR-13: atributo sensível (idade) continua no modelo e nos gráficos SHAP (transparência para o analista),
+# mas não é apresentado ao cliente como motivo da decisão; entra o próximo fator positivo.
+NOT_DISPLAYED_AS_REASON = {"idade"}
 
 
 def reason_codes(shap_row, feature_names, top: int = 3, values=None) -> list[str]:
@@ -73,6 +76,8 @@ def reason_codes(shap_row, feature_names, top: int = 3, values=None) -> list[str
     for i in order:
         if shap_row[i] <= 0 or len(reasons) == top:
             break
+        if feature_names[i] in NOT_DISPLAYED_AS_REASON:
+            continue
         if values is not None and feature_names[i] in FLAG_FEATURES and values[i] != 1:
             continue
         text = REASON_TEXTS.get(feature_names[i])

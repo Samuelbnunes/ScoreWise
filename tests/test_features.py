@@ -36,3 +36,23 @@ def test_percentis_aprendidos_so_no_fit():
     assert out[2, 0] == pytest.approx(np.percentile(treino["a"], 99))
     # os limites não mudam ao transformar dados novos (sem refit)
     assert clipper.upper_[0] == pytest.approx(98.01)
+
+
+def test_preprocessor_sem_idade_exclui_a_coluna(sample):
+    X, _ = sample
+    out = build_preprocessor("tree", drop_cols=("idade",)).fit_transform(X)
+    assert "idade" not in out.columns and out.shape[1] == 15 and not out.isna().any().any()
+
+
+def test_reason_codes_nao_exibe_idade_e_pega_o_proximo_fator():
+    from explain import reason_codes
+
+    names = ["idade", "utilizacao_limite", "atrasos_90", "renda_ausente", "razao_divida"]
+    shap_row = [2.0, 1.0, 0.8, 0.7, 0.5]  # idade é o maior fator positivo
+    values = [30, 0.9, 1, 0, 0.5]  # renda_ausente = 0 (flag inativa) também não pode aparecer
+    r = reason_codes(shap_row, names, top=3, values=values)
+    assert r == [
+        "Uso elevado do limite de crédito disponível",
+        "Histórico de atrasos superiores a 90 dias",
+        "Alto comprometimento da renda com dívidas",
+    ]

@@ -68,10 +68,14 @@ class QuantileClipper(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
         return np.clip(np.asarray(X, dtype=float), self.lower_, self.upper_)
 
 
-def build_preprocessor(kind: str = "tree") -> Pipeline:
-    """kind='tree': derivadas -> clip -> imputação. kind='linear': idem + StandardScaler."""
+def build_preprocessor(kind: str = "tree", drop_cols: tuple = ()) -> Pipeline:
+    """kind='tree': derivadas -> clip -> imputação. kind='linear': idem + StandardScaler.
+    drop_cols: colunas originais a excluir do modelo (ablação; ex.: ("idade",))."""
     if kind not in ("tree", "linear"):
         raise ValueError("kind deve ser 'tree' ou 'linear'")
+    clip_cols = [c for c in CLIP_COLS if c not in drop_cols]
+    count_cols = [c for c in COUNT_COLS if c not in drop_cols]
+    flag_cols = [c for c in FLAG_COLS if c not in drop_cols]
     scale = [("scale", StandardScaler())] if kind == "linear" else []
 
     clip_pipe = Pipeline(
@@ -81,9 +85,9 @@ def build_preprocessor(kind: str = "tree") -> Pipeline:
 
     ct = ColumnTransformer(
         [
-            ("clip", clip_pipe, CLIP_COLS),
-            ("count", count_pipe, COUNT_COLS),
-            ("flag", "passthrough", FLAG_COLS),
+            ("clip", clip_pipe, clip_cols),
+            ("count", count_pipe, count_cols),
+            ("flag", "passthrough", flag_cols),
         ],
         verbose_feature_names_out=False,
     )

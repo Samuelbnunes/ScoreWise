@@ -57,6 +57,15 @@ if "f_idade" not in st.session_state:
     st.session_state.setdefault("result", None)
 
 
+def fmt_pd(p: float) -> str:
+    """Evita falsa precisão nos extremos (a isotônica satura em 0 e 1)."""
+    if p >= 0.99:
+        return "> 99%"
+    if p <= 0.01:
+        return "< 1%"
+    return f"{p:.1%}"
+
+
 def band_figure(pd_value: float):
     fig, ax = plt.subplots(figsize=(7, 1.3))
     lo, hi = THRESH - BAND, THRESH + BAND
@@ -65,7 +74,7 @@ def band_figure(pd_value: float):
     ax.barh([0], [hi - lo], left=lo, color=COLORS["REVISAR"], alpha=0.35)
     ax.barh([0], [xmax - hi], left=hi, color=COLORS["RECUSAR"], alpha=0.25)
     ax.axvline(pd_value, color="black", lw=3)
-    ax.text(pd_value, 0.55, f"PD {pd_value:.1%}", ha="center", va="bottom", fontweight="bold")
+    ax.text(pd_value, 0.55, f"PD {fmt_pd(pd_value)}", ha="center", va="bottom", fontweight="bold")
     ax.axvline(THRESH, color="gray", ls="--", lw=1)
     ax.text(THRESH, -0.55, f"corte {THRESH:.2f}", ha="center", va="top", fontsize=8, color="gray")
     ax.set_xlim(0, xmax)
@@ -119,7 +128,7 @@ with tab_a:
         st.markdown(
             f"<div style='border-left:8px solid {c};padding:12px 18px;background:{c}18;border-radius:6px'>"
             f"<span style='font-size:1.8rem;font-weight:700;color:{c}'>{ICONS[r.decision]} {r.decision}</span><br>"
-            f"Probabilidade de inadimplência: <b>{r.pd:.1%}</b></div>",
+            f"Probabilidade de inadimplência: <b>{fmt_pd(r.pd)}</b></div>",
             unsafe_allow_html=True,
         )
         fig = band_figure(r.pd)

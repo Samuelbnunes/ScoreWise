@@ -1,0 +1,290 @@
+{
+  "bootstrap": {
+    "B": 1000,
+    "seed": 42,
+    "n_teste": 29879,
+    "modelos": {
+      "lgbm": {
+        "auc": {
+          "est": 0.8647870227129114,
+          "ci95": [
+            0.8560410158515392,
+            0.873135891825852
+          ],
+          "ic_contem_zero": false
+        },
+        "ks": {
+          "est": 0.5814714037263091,
+          "ci95": [
+            0.5647272447569845,
+            0.6004620564076434
+          ],
+          "ic_contem_zero": false
+        },
+        "profit_per_proposal": {
+          "est": 0.6752903376953713,
+          "ci95": [
+            0.6613315372000401,
+            0.6889144549683724
+          ],
+          "ic_contem_zero": false
+        }
+      },
+      "lgbm_sem_idade": {
+        "auc": {
+          "est": 0.8611416473901677,
+          "ci95": [
+            0.8523856353807949,
+            0.8698602868163311
+          ],
+          "ic_contem_zero": false
+        },
+        "ks": {
+          "est": 0.5726766865877961,
+          "ci95": [
+            0.5577815310332259,
+            0.5926660012292201
+          ],
+          "ic_contem_zero": false
+        },
+        "profit_per_proposal": {
+          "est": 0.6755246159510023,
+          "ci95": [
+            0.6628635496502561,
+            0.6891135914856589
+          ],
+          "ic_contem_zero": false
+        }
+      },
+      "logreg": {
+        "auc": {
+          "est": 0.859033781084217,
+          "ci95": [
+            0.8501223435763838,
+            0.8673337075352942
+          ],
+          "ic_contem_zero": false
+        },
+        "ks": {
+          "est": 0.5655293696510469,
+          "ci95": [
+            0.5489584711429334,
+            0.5854619706582906
+          ],
+          "ic_contem_zero": false
+        },
+        "profit_per_proposal": {
+          "est": 0.6689982931155661,
+          "ci95": [
+            0.6553097493222665,
+            0.6829252987047759
+          ],
+          "ic_contem_zero": false
+        }
+      }
+    },
+    "pareado": {
+      "lgbm_menos_logreg": {
+        "auc": {
+          "est": 0.005753241628694394,
+          "ci95": [
+            0.003076475619981647,
+            0.009033673215493395
+          ],
+          "ic_contem_zero": false
+        },
+        "ks": {
+          "est": 0.01594203407526218,
+          "ci95": [
+            0.003808866078957374,
+            0.026395724008436094
+          ],
+          "ic_contem_zero": false
+        },
+        "profit": {
+          "est": 0.006292044579805145,
+          "ci95": [
+            0.0014383011479634112,
+            0.011280498008634812
+          ],
+          "ic_contem_zero": false
+        }
+      },
+      "lgbm_menos_lgbm_sem_idade": {
+        "auc": {
+          "est": 0.0036453753227436714,
+          "ci95": [
+            0.0013821217391086994,
+            0.005846181897107727
+          ],
+          "ic_contem_zero": false
+        },
+        "ks": {
+          "est": 0.008794717138512986,
+          "ci95": [
+            -0.002024715649177086,
+            0.015637011074527345
+          ],
+          "ic_contem_zero": true
+        },
+        "profit": {
+          "est": -0.00023427825563104854,
+          "ci95": [
+            -0.0038170621506744243,
+            0.0028121757756284053
+          ],
+          "ic_contem_zero": true
+        }
+      }
+    }
+  },
+  "auc_por_fold_cv": {
+    "lgbm": [
+      0.8611138122098734,
+      0.8620565656545299,
+      0.8640764352332257,
+      0.8674313347440663,
+      0.8623407705505344
+    ],
+    "logreg": [
+      0.85431037421778,
+      0.8582065622312721,
+      0.8572192573579006,
+      0.8600629102125282,
+      0.8596365422366593
+    ],
+    "lgbm_sem_idade": [
+      0.8575013375337238,
+      0.8596129389852298,
+      0.8583357039893204,
+      0.8626823578745639,
+      0.8602313651945204
+    ],
+    "dif_lgbm_logreg": [
+      0.006803437992093375,
+      0.0038500034232578084,
+      0.006857177875325138,
+      0.007368424531538076,
+      0.002704228313875068
+    ],
+    "dif_media": 0.005516654427217893,
+    "dif_desvio": 0.002095789456805404,
+    "lgbm_vence_em_todos_os_folds": true,
+    "dif_lgbm_menos_sem_idade_media": 0.003731042962974285
+  },
+  "ablacao_sem_idade": {
+    "lgbm": {
+      "corte_custo": 0.27,
+      "auc_teste": 0.8647870227129114,
+      "ks_teste": 0.5814714037263091,
+      "brier_calibrado": 0.04888429319188488,
+      "lucro_por_proposta": 0.6752903376953713,
+      "taxa_aprovacao": 0.9369791492352488,
+      "inadimplencia_aprovados": 0.04050578654093442,
+      "disparate_impact_min": 0.8900914832586754,
+      "tpr_por_faixa": {
+        "<30": 0.9235181644359465,
+        "30–44": 0.9468902865129281,
+        "45–59": 0.9605316149818768,
+        "60+": 0.9866608827675957
+      },
+      "aprovacao_por_faixa": {
+        "<30": 0.8680516563728242,
+        "30–44": 0.9098996060490533,
+        "45–59": 0.9342867825761825,
+        "60+": 0.975238694785437
+      },
+      "equal_opp_gap_60mais_menos_menor30": 0.0631427183316492,
+      "equal_opp_gap_max_min": 0.0631427183316492,
+      "gap_bootstrap": {
+        "est": 0.0631427183316492,
+        "ci95": [
+          0.04957132210454723,
+          0.0763728598059262
+        ],
+        "ic_contem_zero": false
+      }
+    },
+    "lgbm_sem_idade": {
+      "corte_custo": 0.255,
+      "auc_teste": 0.8611416473901677,
+      "ks_teste": 0.5726766865877961,
+      "brier_calibrado": 0.04892652058421749,
+      "lucro_por_proposta": 0.6755246159510023,
+      "taxa_aprovacao": 0.9339335319120452,
+      "inadimplencia_aprovados": 0.03967030998029027,
+      "disparate_impact_min": 0.9019491769825779,
+      "tpr_por_faixa": {
+        "<30": 0.9298916507329509,
+        "30–44": 0.9453529000698812,
+        "45–59": 0.9581151832460733,
+        "60+": 0.9824314065719553
+      },
+      "aprovacao_por_faixa": {
+        "<30": 0.8747894441325098,
+        "30–44": 0.9074850679883085,
+        "45–59": 0.9312020938493176,
+        "60+": 0.969887734760256
+      },
+      "equal_opp_gap_60mais_menos_menor30": 0.05253975583900439,
+      "equal_opp_gap_max_min": 0.05253975583900439,
+      "gap_bootstrap": {
+        "est": 0.05253975583900439,
+        "ci95": [
+          0.03969463751135989,
+          0.06558191863852122
+        ],
+        "ic_contem_zero": false
+      }
+    },
+    "gap_reducao_bootstrap": {
+      "est": 0.010602962492644807,
+      "ci95": [
+        0.0058912152089846655,
+        0.01590560959313173
+      ],
+      "ic_contem_zero": false
+    }
+  },
+  "sensibilidade_custo": [
+    {
+      "perda_mau_aprovado": -3,
+      "corte_teorico": 0.4,
+      "corte_otimo_oof": 0.345,
+      "lucro_teste_corte_otimo": 0.7566183607215771,
+      "lucro_teste_aprovar_todos": 0.7319856755580842,
+      "lucro_teste_recusar_todos": -0.9329964188895211,
+      "ganho_pct_sobre_aprovar_todos": 3.365186777010662,
+      "lucro_teste_mantendo_corte_0.270": 0.75119649251983,
+      "lucro_teste_corte_0.5": 0.7504601894307038,
+      "taxa_aprovacao": 0.9624485424545668,
+      "inadimplencia_aprovados": 0.04889244357895469
+    },
+    {
+      "perda_mau_aprovado": -5,
+      "corte_teorico": 0.2857142857142857,
+      "corte_otimo_oof": 0.27,
+      "lucro_teste_corte_otimo": 0.6752903376953713,
+      "lucro_teste_aprovar_todos": 0.5979785133371264,
+      "lucro_teste_recusar_todos": -0.9329964188895211,
+      "ganho_pct_sobre_aprovar_todos": 12.92886326747635,
+      "lucro_teste_mantendo_corte_0.270": 0.6752903376953713,
+      "lucro_teste_corte_0.5": 0.6384082465945982,
+      "taxa_aprovacao": 0.9369791492352488,
+      "inadimplencia_aprovados": 0.04050578654093442
+    },
+    {
+      "perda_mau_aprovado": -10,
+      "corte_teorico": 0.16666666666666666,
+      "corte_otimo_oof": 0.17,
+      "lucro_teste_corte_otimo": 0.5091535861307273,
+      "lucro_teste_aprovar_todos": 0.26296060778473174,
+      "lucro_teste_recusar_todos": -0.9329964188895211,
+      "ganho_pct_sobre_aprovar_todos": 93.62352042764415,
+      "lucro_teste_mantendo_corte_0.270": 0.4855249506342247,
+      "lucro_teste_corte_0.5": 0.35827838950433416,
+      "taxa_aprovacao": 0.8925666856320492,
+      "inadimplencia_aprovados": 0.032022198057669954
+    }
+  ]
+}
