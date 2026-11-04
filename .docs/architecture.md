@@ -618,9 +618,9 @@ ScoreWise/
 - **DoD:** `streamlit run app/streamlit_app.py` abre sem erro e os 3 perfis dão as 3 decisões.
 
 #### E7. Entrega · 2 h 30
-- [ ] **T7.1** `README.md`: objetivo, 4 comandos (instalar, baixar, treinar, demo), estrutura · 20 min
-- [ ] **T7.2** `relatorio.md` (estrutura da seção 13.1) · 1 h
-- [ ] **T7.3** Slides (seção 13.2) · 50 min
+- [x] **T7.1** `README.md`: objetivo, 4 comandos (instalar, baixar, treinar, demo), estrutura · 20 min
+- [x] **T7.2** `relatorio.md` (estrutura da seção 13.1) · 1 h
+- [x] **T7.3** Slides (seção 13.2) · 50 min
 - [ ] **T7.4** Gravar vídeo de backup da demo (1–2 min) · 10 min
 - [ ] **T7.5** Ensaio cronometrado · 10 min
 - **DoD:** checklist da seção 14 completo.
@@ -742,13 +742,13 @@ ScoreWise/
 
 ## 14. Checklist final (DoD do MVP)
 
-- [ ] `python src/train.py` gera o `model.joblib` do zero, com resultado reprodutível
-- [ ] `python src/evaluate.py` gera todas as figuras e JSONs
-- [ ] `pytest` passa
-- [ ] `streamlit run app/streamlit_app.py` funciona e os 3 perfis dão as 3 decisões
-- [ ] Todo número dos slides e do relatório existe em `reports/metrics/`
-- [ ] Premissas de custo e limitações explícitas no relatório
-- [ ] README com instruções reproduzíveis
+- [x] `python src/train.py` gera o `model.joblib` do zero, com resultado reprodutível
+- [x] `python src/evaluate.py` gera todas as figuras e JSONs
+- [x] `pytest` passa
+- [x] `streamlit run app/streamlit_app.py` funciona e os 3 perfis dão as 3 decisões
+- [x] Todo número dos slides e do relatório existe em `reports/metrics/`
+- [x] Premissas de custo e limitações explícitas no relatório
+- [x] README com instruções reproduzíveis
 - [ ] Vídeo de backup gravado e apresentação ensaiada
 
 ---
