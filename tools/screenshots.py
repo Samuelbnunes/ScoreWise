@@ -7,7 +7,9 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8601").rstrip("/")
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+ONLY = next((a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--only=")), None)  # ex.: --only=inicio,simulador
+BASE = (ARGS[0] if ARGS else "http://localhost:8601").rstrip("/")
 OUT = Path(__file__).resolve().parents[1] / "reports" / "screenshots"
 OUT.mkdir(parents=True, exist_ok=True)
 VIEWPORTS = {"1366x768": (1366, 768), "1920x1080": (1920, 1080)}
@@ -35,14 +37,14 @@ with sync_playwright() as pw:
         page = browser.new_page(viewport={"width": w, "height": h})
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
-        for name in PAGES:
+        for name in [p for p in PAGES if ONLY is None or p in ONLY]:
             page.goto(f"{BASE}/{name}")
             ready(page)
             if name != "simulador":
                 shot(page, f"{name}_{vp_name}.png", w, h)
         page.goto(f"{BASE}/simulador")
         ready(page)
-        for label, slug in PROFILES:
+        for label, slug in (PROFILES if ONLY is None or "simulador" in ONLY else []):
             page.get_by_role("button", name=re.compile(rf"\b{label}\b")).first.click()
             page.wait_for_timeout(600)
             page.get_by_role("button", name=re.compile("Analisar proposta")).click()

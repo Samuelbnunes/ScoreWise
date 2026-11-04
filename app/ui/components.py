@@ -93,11 +93,21 @@ def decision_card(decision: str, pd_str: str, detail: str, uid: int = 0) -> None
     )
 
 
+WEIGHT_HELP = "Peso relativo: participação do fator entre os que aumentaram o risco (SHAP)."
+
+
+def _risk_color(share: float) -> str:
+    """Âmbar -> vermelho conforme o peso: motivos são fatores de RISCO, não de acerto."""
+    lo, hi = (0xD9, 0x77, 0x06), (0xDC, 0x26, 0x26)
+    s = min(max(share, 0.0), 1.0)
+    return "#%02X%02X%02X" % tuple(round(a + (b - a) * s) for a, b in zip(lo, hi))
+
+
 def reason_chip(rank: int, text: str, share: float) -> None:
     st.markdown(
-        f'<div class="sw-chip"><span class="sw-chip-rank">{rank}</span><span class="sw-chip-text">{_h(text)}</span>'
-        f'<span class="sw-chip-bar" title="Participação no impacto (SHAP)"><div style="width:{max(4, round(share * 100))}%"></div></span>'
-        f'<span class="sw-chip-pct">{pct(share, 0)}</span></div>',
+        f'<div class="sw-chip" title="{_h(WEIGHT_HELP)}"><span class="sw-chip-rank">{rank}</span><span class="sw-chip-text">{_h(text)}</span>'
+        f'<span class="sw-chip-bar"><div style="width:{max(4, round(share * 100))}%;background:{_risk_color(share)}"></div></span>'
+        f'<span class="sw-chip-pct">{pct(share, 0)}<small>peso relativo</small></span></div>',
         unsafe_allow_html=True,
     )
 

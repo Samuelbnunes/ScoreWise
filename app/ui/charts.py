@@ -23,14 +23,17 @@ def _base(fig: go.Figure, height: int = 380, **kw) -> go.Figure:
     return fig
 
 
+GAUGE_MAX = 60  # escala visual em %; acima disso o ponteiro satura (o valor real fica no centro)
+
+
 def gauge(pd_value: float, threshold: float, band: float) -> go.Figure:
     lo, hi = (threshold - band) * 100, (threshold + band) * 100
     fig = go.Figure(go.Indicator(
-        mode="gauge", value=min(pd_value, 1.0) * 100,
+        mode="gauge", value=min(pd_value * 100, GAUGE_MAX),
         gauge=dict(
-            axis=dict(range=[0, 100], ticksuffix="%", tickvals=[0, 25, 50, 75, 100], tickfont=dict(size=12)),
+            axis=dict(range=[0, GAUGE_MAX], tickvals=[0, 20, 40, GAUGE_MAX], ticktext=["0%", "20%", "40%", f"{GAUGE_MAX}%+"], tickfont=dict(size=12)),
             bar=dict(color=T["navy"], thickness=0.3),
-            steps=[dict(range=[0, lo], color="#BBF7D0"), dict(range=[lo, hi], color="#FDE68A"), dict(range=[hi, 100], color="#FECACA")],
+            steps=[dict(range=[0, lo], color="#BBF7D0"), dict(range=[lo, hi], color="#FDE68A"), dict(range=[hi, GAUGE_MAX], color="#FECACA")],
             threshold=dict(line=dict(color=T["navy"], width=4), thickness=0.85, value=threshold * 100),
             bgcolor="#FFFFFF", borderwidth=0,
         ),

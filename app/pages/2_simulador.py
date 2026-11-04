@@ -131,7 +131,7 @@ with right:
             total = sum(res.reason_impacts) or 1.0
             for i, (txt, imp) in enumerate(zip(res.reasons, res.reason_impacts), 1):
                 reason_chip(i, txt, imp / total)
-            st.caption("A barra mostra a participação de cada motivo no impacto somado dos três.")
+            st.caption("Peso relativo de cada motivo.", help="Participação do fator entre os que aumentaram o risco (SHAP). A cor vai de âmbar a vermelho conforme o peso.")
         else:
             st.markdown("Nenhum fator elevou o risco acima da média.")
         if res.decision == "REVISAR":

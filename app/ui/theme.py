@@ -29,7 +29,11 @@ LOGO_SVG = (
 
 _T = TOKENS
 CSS = f"""
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Inter servida localmente (app/static/fonts); o Google Fonts é só o 2º src, usado se o arquivo local falhar */
+@font-face {{ font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('/app/static/fonts/inter-latin-400-normal.woff2') format('woff2'), url('https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2') format('woff2'); }}
+@font-face {{ font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('/app/static/fonts/inter-latin-600-normal.woff2') format('woff2'), url('https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2') format('woff2'); }}
+@font-face {{ font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url('/app/static/fonts/inter-latin-700-normal.woff2') format('woff2'), url('https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2') format('woff2'); }}
+@font-face {{ font-family: 'Inter'; font-style: normal; font-weight: 800; font-display: swap; src: url('/app/static/fonts/inter-latin-800-normal.woff2') format('woff2'), url('https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2') format('woff2'); }}
 :root {{ --sw-navy:{_T['navy']}; --sw-accent:{_T['accent']}; --sw-bg:{_T['bg']}; --sw-surface:{_T['surface']};
         --sw-text:{_T['text']}; --sw-muted:{_T['muted']}; --sw-border:{_T['border']}; }}
 /* Fonte: tudo, exceto a fonte de ícones do Streamlit */
@@ -90,8 +94,9 @@ h1, h2, h3 {{ color: var(--sw-navy); letter-spacing: -0.01em; }}
   display: inline-flex; align-items: center; justify-content: center; flex: none; }}
 .sw-chip-text {{ flex: 1; font-weight: 600; font-size: .92rem; }}
 .sw-chip-bar {{ width: 90px; height: 8px; background: #EEF2F7; border-radius: 4px; overflow: hidden; flex: none; }}
-.sw-chip-bar > div {{ height: 100%; background: var(--sw-accent); border-radius: 4px; }}
-.sw-chip-pct {{ width: 2.6rem; text-align: right; font-size: .8rem; color: var(--sw-muted); flex: none; }}
+.sw-chip-bar > div {{ height: 100%; border-radius: 4px; }}
+.sw-chip-pct {{ width: 5.2rem; text-align: right; font-size: .95rem; font-weight: 700; color: var(--sw-text); flex: none; line-height: 1.05; }}
+.sw-chip-pct small {{ display: block; font-size: .62rem; font-weight: 500; color: var(--sw-muted); }}
 .sw-empty {{ border: 2px dashed var(--sw-border); border-radius: 14px; padding: 2.2rem 1rem; text-align: center; color: var(--sw-muted); background: #fff; }}
 .sw-footer {{ margin-top: 2rem; padding-top: .8rem; border-top: 1px solid var(--sw-border); font-size: .76rem; color: var(--sw-muted); text-align: center; }}
 .sw-pill {{ display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 700; background: #E6F4EF; color: #065F46; }}

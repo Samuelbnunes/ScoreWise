@@ -60,3 +60,21 @@ def test_simulador_entrada_invalida_mostra_erro_sem_quebrar():
     at.number_input(key="f_utilizacao_limite").set_value(10.0).run()
     at.button(key="analisar").click().run()
     assert not at.exception
+
+
+def test_motivos_rotulam_peso_relativo():
+    at = _open("2_simulador")
+    at.button(key="perfil_arriscado").click().run()
+    at.button(key="analisar").click().run()
+    chips = [m.value for m in at.markdown if "sw-chip" in m.value and "<style>" not in m.value]
+    assert chips and all("peso relativo" in c for c in chips)
+    assert not any("var(--sw-accent)" in c for c in chips)  # fatores de risco: nunca no verde de acento
+
+
+def test_fonte_inter_e_servida_localmente():
+    fontes = ROOT / "app" / "static" / "fonts"
+    for w in (400, 600, 700):
+        f = fontes / f"inter-latin-{w}-normal.woff2"
+        assert f.exists() and f.read_bytes()[:4] == b"wOF2"
+    assert "enableStaticServing = true" in (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
+    assert "fonts.googleapis.com" not in (ROOT / "app" / "ui" / "theme.py").read_text(encoding="utf-8")  # sem @import externo
