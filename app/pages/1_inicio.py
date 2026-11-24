@@ -9,12 +9,14 @@ for _p in (_APP, _APP.parent / "src"):
 
 import streamlit as st
 
-from ui.components import begin, br, card_grid, ci_text, end, kpi_card, pct, require_metrics, section_header
+from ui.components import CALIBRATION_PT, begin, br, card_grid, ci_text, end, kpi_card, pct, require_metrics, section_header
 from ui.theme import TAGLINE
 
 begin("Início")
-m = require_metrics("stats.json", "test_results.json", "cv_results.json")
+m = require_metrics("stats.json", "test_results.json", "cv_results.json", "curves.json")
 stats, test, cv = m["stats.json"], m["test_results.json"], m["cv_results.json"]
+tres = test["decisao_3_faixas"]  # decisão do produto: aprovar / revisar / recusar (ADR-20)
+cal_pt = CALIBRATION_PT.get(m["curves.json"].get("calibration_method", "isotonic"), "calibração")
 
 auc = stats["bootstrap"]["modelos"]["lgbm"]["auc"]
 sens = {s["perda_mau_aprovado"]: s for s in stats["sensibilidade_custo"]}
@@ -25,7 +27,7 @@ n_total = cv["n_train"] + test["n_test"]
 st.markdown(
     f'<div class="sw-hero"><h1>{TAGLINE}</h1>'
     f"<p>O ScoreWise estima a probabilidade de inadimplência de cada proposta, decide entre aprovar, revisar ou recusar "
-    f"e explica a decisão com os três fatores que mais pesaram, em português simples.</p></div>",
+    f"e explica a decisão com até três fatores que mais pesaram, em português simples.</p></div>",
     unsafe_allow_html=True,
 )
 st.write("")
@@ -41,9 +43,11 @@ with k[1]:
     kpi_card("KS", br(test["models"]["lgbm"]["ks"], 3), "separação entre bons e maus",
              "Maior distância entre as distribuições acumuladas de bons e maus pagadores.")
 with k[2]:
-    kpi_card("Taxa de aprovação", pct(test["cut_rules_final_model"]["custo"]["approval_rate"]),
-             f"inadimplência dos aprovados: {pct(test['cut_rules_final_model']['custo']['default_rate_approved'])}",
-             f"Com o corte por custo ({br(test['cut_rules_final_model']['custo']['threshold'], 3)}). A inadimplência da população é {pct(test['test_default_rate'], 2)}.")
+    kpi_card("Aprovação automática", pct(tres["aprovacao_automatica"]),
+             f"+ {pct(tres['por_faixa']['REVISAR']['pct'])} para revisão humana",
+             f"Decisão em 3 faixas: aprova se PD < {pct(tres['faixa'][0])}, revisão humana de {pct(tres['faixa'][0])} a {pct(tres['faixa'][1])} "
+             f"e recusa acima. Inadimplência dos aprovados automaticamente: {pct(tres['inadimplencia_aprovados_automaticos'])}; "
+             f"da população: {pct(test['test_default_rate'], 2)}.")
 with k[3]:
     kpi_card("Ganho vs. aprovar todos", f"+{br(ganho, 1)}%", "sob premissas ilustrativas de custo",
              f"Lucro esperado por proposta em relação a aprovar todos. Depende da perda assumida por mau aprovado: de +{br(lo, 1)}% (−3) a +{br(hi, 1)}% (−10).")
@@ -51,8 +55,10 @@ with k[3]:
 section_header("Como funciona")
 card_grid([
     ("1", "Dados", f"{br(n_total, 0)} propostas do dataset público <i>Give Me Some Credit</i>. Limpeza, divisão treino/teste antes de qualquer ajuste e pré-processamento dentro do pipeline, sem vazamento."),
-    ("2", "Modelo calibrado", "LightGBM com calibração isotônica: uma PD de 10% corresponde a cerca de 10% de maus pagadores. O corte de aprovação é escolhido pelo lucro esperado."),
-    ("3", "Decisão explicada", "Aprovar, revisar ou recusar, com os 3 motivos que mais pesaram (SHAP). Casos limítrofes vão para revisão humana."),
+    ("2", "Modelo coerente e calibrado", f"LightGBM com restrições monotônicas (mais atraso nunca reduz o risco; mais renda nunca o aumenta) e {cal_pt}: "
+          "uma PD de 10% corresponde a cerca de 10% de maus pagadores. A idade não é usada. O corte é escolhido pelo lucro esperado."),
+    ("3", "Decisão explicada", "Aprovar, revisar ou recusar, com até 3 motivos distintos (SHAP). A revisão humana fica na faixa em que ela vale mais "
+          "do que a decisão automática."),
 ])
 
 end()

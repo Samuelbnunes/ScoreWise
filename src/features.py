@@ -14,6 +14,7 @@ DERIVED_NEW = [
     "renda_per_capita",
     "divida_mensal",
     "renda_ausente",
+    "sem_uso_rotativo",
 ]
 
 # Contínuas com cauda absurda: clip p1–p99. Contagens não entram (p99 de atrasos zeraria o sinal).
@@ -28,7 +29,7 @@ COUNT_COLS = [
     "dependentes",
     "total_atrasos",
 ]
-FLAG_COLS = ["renda_ausente", "atraso_codigo_especial", "teve_atraso_grave"]
+FLAG_COLS = ["renda_ausente", "atraso_codigo_especial", "teve_atraso_grave", "sem_uso_rotativo"]
 
 
 def add_derived(X: pd.DataFrame) -> pd.DataFrame:
@@ -41,6 +42,9 @@ def add_derived(X: pd.DataFrame) -> pd.DataFrame:
     out["renda_per_capita"] = out["renda_mensal"] / (out["dependentes"] + 1)
     out["divida_mensal"] = out["razao_divida"] * out["renda_mensal"]
     out["renda_ausente"] = out["renda_mensal"].isna().astype(int)
+    # Utilização zero tem risco próprio (2,94% de maus contra 1,28% em (0; 0,01]): a flag captura esse
+    # efeito e permite restrição monotônica crescente na utilização positiva (ADR-17).
+    out["sem_uso_rotativo"] = (out["utilizacao_limite"] == 0).astype(int)
     return out
 
 
@@ -68,9 +72,14 @@ class QuantileClipper(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
         return np.clip(np.asarray(X, dtype=float), self.lower_, self.upper_)
 
 
+def output_feature_names(drop_cols: tuple = ()) -> list[str]:
+    """Nomes, na ordem, das colunas que o pré-processador entrega ao modelo (alinha monotone_constraints)."""
+    return [c for c in CLIP_COLS + COUNT_COLS + FLAG_COLS if c not in drop_cols]
+
+
 def build_preprocessor(kind: str = "tree", drop_cols: tuple = ()) -> Pipeline:
     """kind='tree': derivadas -> clip -> imputação. kind='linear': idem + StandardScaler.
-    drop_cols: colunas originais a excluir do modelo (ablação; ex.: ("idade",))."""
+    drop_cols: colunas a excluir do modelo, originais ou derivadas (ex.: ("idade",), ("idade", "divida_mensal"))."""
     if kind not in ("tree", "linear"):
         raise ValueError("kind deve ser 'tree' ou 'linear'")
     clip_cols = [c for c in CLIP_COLS if c not in drop_cols]

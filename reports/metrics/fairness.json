@@ -1,58 +1,103 @@
 {
-  "corte": 0.27,
+  "corte": 0.26,
   "n_sem_idade_excluidos": 0,
   "grupo_referencia": "60+",
   "por_faixa": [
     {
       "faixa": "<30",
-      "n": 1781,
-      "taxa_mau_real": 0.11903425042111174,
-      "taxa_aprovacao": 0.8680516563728242,
-      "tpr_bom_aprovado": 0.9235181644359465,
-      "fpr_mau_aprovado": 0.45754716981132076,
-      "inadimplencia_aprovados": 0.06274256144890039,
-      "disparate_impact": 0.8900914832586754,
+      "n": 1673,
+      "taxa_mau_real": 0.12671846981470414,
+      "taxa_aprovacao": 0.8750747160789002,
+      "tpr_bom_aprovado": 0.9274469541409993,
+      "fpr_mau_aprovado": 0.5141509433962265,
+      "inadimplencia_aprovados": 0.0744535519125683,
+      "disparate_impact": 0.9004392006029263,
       "alerta_di_lt_0.8": false,
-      "equal_opp_diff_vs_ref": -0.0631427183316492
+      "equal_opp_diff_vs_ref": -0.055363210283514874
     },
     {
       "faixa": "30–44",
-      "n": 7869,
-      "taxa_mau_real": 0.09073579870377431,
-      "taxa_aprovacao": 0.9098996060490533,
-      "tpr_bom_aprovado": 0.9468902865129281,
-      "fpr_mau_aprovado": 0.5392156862745098,
-      "inadimplencia_aprovados": 0.05377094972067039,
-      "disparate_impact": 0.9330019521520739,
+      "n": 7786,
+      "taxa_mau_real": 0.09208836372977139,
+      "taxa_aprovacao": 0.9117647058823529,
+      "tpr_bom_aprovado": 0.9486490309803367,
+      "fpr_mau_aprovado": 0.5481171548117155,
+      "inadimplencia_aprovados": 0.05535990984645725,
+      "disparate_impact": 0.9381926683716965,
       "alerta_di_lt_0.8": false,
-      "equal_opp_diff_vs_ref": -0.03977059625466761
+      "equal_opp_diff_vs_ref": -0.03416113344417748
     },
     {
       "faixa": "45–59",
-      "n": 10698,
-      "taxa_mau_real": 0.0716021686296504,
-      "taxa_aprovacao": 0.9342867825761825,
-      "tpr_bom_aprovado": 0.9605316149818768,
-      "fpr_mau_aprovado": 0.5939947780678851,
-      "inadimplencia_aprovados": 0.04552276138069034,
-      "disparate_impact": 0.9580083189600425,
+      "n": 10756,
+      "taxa_mau_real": 0.07279657865377463,
+      "taxa_aprovacao": 0.9328746746002231,
+      "tpr_bom_aprovado": 0.961395768575153,
+      "fpr_mau_aprovado": 0.5696040868454662,
+      "inadimplencia_aprovados": 0.04444887382898146,
+      "disparate_impact": 0.9599145202408093,
       "alerta_di_lt_0.8": false,
-      "equal_opp_diff_vs_ref": -0.02612926778571889
+      "equal_opp_diff_vs_ref": -0.021414395849361223
     },
     {
       "faixa": "60+",
-      "n": 9531,
-      "taxa_mau_real": 0.032525443290315814,
-      "taxa_aprovacao": 0.975238694785437,
-      "tpr_bom_aprovado": 0.9866608827675957,
-      "fpr_mau_aprovado": 0.635483870967742,
-      "inadimplencia_aprovados": 0.021194190424959656,
+      "n": 9656,
+      "taxa_mau_real": 0.03003314001657001,
+      "taxa_aprovacao": 0.971830985915493,
+      "tpr_bom_aprovado": 0.9828101644245142,
+      "fpr_mau_aprovado": 0.6172413793103448,
+      "inadimplencia_aprovados": 0.019075021312872975,
       "disparate_impact": 1.0,
       "alerta_di_lt_0.8": false,
       "equal_opp_diff_vs_ref": 0.0
     }
   ],
-  "disparate_impact_min": 0.8900914832586754,
-  "equal_opportunity_gap_max": 0.0631427183316492,
-  "aprovacao_global": 0.9369791492352488
+  "disparate_impact_min": 0.9004392006029263,
+  "equal_opportunity_gap_max": 0.055363210283514874,
+  "aprovacao_global": 0.9367279300994276,
+  "faixa_revisar": [
+    0.2068965517241379,
+    0.3414634146341464
+  ],
+  "decisao_3_faixas_por_faixa_etaria": [
+    {
+      "faixa": "<30",
+      "n": 1673,
+      "aprovacao_automatica": 0.8380155409444112,
+      "revisar": 0.08248655110579797,
+      "recusar": 0.0794979079497908,
+      "tpr_bom_aprovado_automatico": 0.8973305954825462,
+      "disparate_impact_automatico": 0.8720635912662178
+    },
+    {
+      "faixa": "30–44",
+      "n": 7786,
+      "aprovacao_automatica": 0.8867197534035448,
+      "revisar": 0.05214487541741587,
+      "recusar": 0.0611353711790393,
+      "tpr_bom_aprovado_automatico": 0.9281369359173858,
+      "disparate_impact_automatico": 0.9227466255916186
+    },
+    {
+      "faixa": "45–59",
+      "n": 10756,
+      "aprovacao_automatica": 0.9135366307177389,
+      "revisar": 0.03849014503532912,
+      "recusar": 0.04797322424693194,
+      "tpr_bom_aprovado_automatico": 0.946254888198135,
+      "disparate_impact_automatico": 0.9506530559554357
+    },
+    {
+      "faixa": "60+",
+      "n": 9656,
+      "aprovacao_automatica": 0.960956917978459,
+      "revisar": 0.020505385252692625,
+      "recusar": 0.018537696768848384,
+      "tpr_bom_aprovado_automatico": 0.973628016228913,
+      "disparate_impact_automatico": 1.0
+    }
+  ],
+  "decisao_3_faixas_grupo_referencia": "60+",
+  "decisao_3_faixas_disparate_impact_min": 0.8720635912662178,
+  "decisao_3_faixas_gap_tpr_max": 0.0762974207463668
 }

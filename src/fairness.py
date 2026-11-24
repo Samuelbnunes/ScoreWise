@@ -1,5 +1,7 @@
 """Equidade por faixa etária no TESTE, com a decisão do modelo final (aprova se PD < corte).
-'Positivo' para equal opportunity = bom pagador APROVADO (TPR = P(aprovado | bom))."""
+'Positivo' para equal opportunity = bom pagador APROVADO (TPR = P(aprovado | bom)).
+v0.2.0: a idade não é variável do modelo (ADR-18); ela é usada aqui só para auditar o resultado. Além do corte
+simples, mede a decisão em 3 faixas do produto (REVISAR conta como "não aprovado automaticamente")."""
 import json
 
 import joblib
@@ -56,6 +58,22 @@ def main():
     t = group_table(X_te["idade"][ok], y_te.to_numpy()[ok], approved[ok])
 
     eo_gap = float(t["tpr_bom_aprovado"].max() - t["tpr_bom_aprovado"].min())
+
+    # Decisão em 3 faixas por faixa etária (ADR-20)
+    from evaluate import band_or_cut
+
+    lo, hi = band_or_cut(bundle.get("review_band"), bundle["threshold"])
+    yk, pk = y_te.to_numpy()[ok], pd_te[ok]
+    faixa = pd.cut(X_te["idade"][ok], bins=AGE_BINS, labels=AGE_LABELS, right=False).to_numpy()
+    tres = []
+    for g in AGE_LABELS:
+        m = faixa == g
+        auto, rev = pk[m] < lo, (pk[m] >= lo) & (pk[m] <= hi)
+        tres.append({"faixa": g, "n": int(m.sum()), "aprovacao_automatica": float(auto.mean()), "revisar": float(rev.mean()),
+                     "recusar": float((pk[m] > hi).mean()), "tpr_bom_aprovado_automatico": float(auto[yk[m] == 0].mean())})
+    ref3 = max(tres, key=lambda r: r["aprovacao_automatica"])
+    for r in tres:
+        r["disparate_impact_automatico"] = r["aprovacao_automatica"] / ref3["aprovacao_automatica"]
     out = {
         "corte": float(bundle["threshold"]),
         "n_sem_idade_excluidos": int((~ok).sum()),
@@ -64,6 +82,12 @@ def main():
         "disparate_impact_min": float(t["disparate_impact"].min()),
         "equal_opportunity_gap_max": eo_gap,
         "aprovacao_global": float(approved.mean()),
+        "faixa_revisar": [lo, hi],
+        "decisao_3_faixas_por_faixa_etaria": tres,
+        "decisao_3_faixas_grupo_referencia": ref3["faixa"],
+        "decisao_3_faixas_disparate_impact_min": float(min(r["disparate_impact_automatico"] for r in tres)),
+        "decisao_3_faixas_gap_tpr_max": float(max(r["tpr_bom_aprovado_automatico"] for r in tres)
+                                               - min(r["tpr_bom_aprovado_automatico"] for r in tres)),
     }
     (METRICS_DIR / "fairness.json").write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -91,6 +115,8 @@ def main():
     pd.set_option("display.width", 200)
     print(t.round(4).to_string())
     print(f"referência: {t.attrs['ref']} | DI mínimo: {t['disparate_impact'].min():.3f} | gap TPR: {eo_gap:.4f} | sem idade: {int((~ok).sum())}")
+    print(f"3 faixas (REVISAR em [{lo:.3f}; {hi:.3f}]):")
+    print(pd.DataFrame(tres).set_index("faixa").round(4).to_string())
 
 
 if __name__ == "__main__":

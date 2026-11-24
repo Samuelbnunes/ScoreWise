@@ -38,9 +38,12 @@ def load_raw(path: Path = RAW_FILE) -> pd.DataFrame:
 
 
 def clean_static(df: pd.DataFrame) -> pd.DataFrame:
-    """age=0 -> NaN; 96/98 nas colunas de atraso -> NaN + flag; renomeia para PT."""
+    """age=0 -> NaN; renda 0 -> NaN; 96/98 nas colunas de atraso -> NaN + flag; renomeia para PT."""
     out = df.copy()
     out.loc[out["age"] == 0, "age"] = np.nan
+    # Renda 0 = renda não informada (ADR-19): com renda 0, o DebtRatio do dado bruto é dívida absoluta
+    # (mediana 930, 93% acima de 1), como no grupo de renda nula (mediana 1.159, 94% acima de 1).
+    out.loc[out["MonthlyIncome"] == 0, "MonthlyIncome"] = np.nan
 
     special = out[DELINQUENCY_COLS].isin(SPECIAL_DELINQUENCY_CODES)
     out["atraso_codigo_especial"] = special.any(axis=1).astype(int)

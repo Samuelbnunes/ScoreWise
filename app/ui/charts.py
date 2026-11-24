@@ -1,7 +1,7 @@
 """Gráficos Plotly com template próprio. Recebem dados já lidos de reports/metrics/*.json; não calculam métricas."""
 import plotly.graph_objects as go
 
-from ui.components import br, pct, pd_text
+from ui.components import CALIBRATION_PT, br, pct, pd_text
 from ui.theme import TOKENS as T
 
 FONT = "Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif"
@@ -26,8 +26,11 @@ def _base(fig: go.Figure, height: int = 380, **kw) -> go.Figure:
 GAUGE_MAX = 60  # escala visual em %; acima disso o ponteiro satura (o valor real fica no centro)
 
 
-def gauge(pd_value: float, threshold: float, band: float) -> go.Figure:
-    lo, hi = (threshold - band) * 100, (threshold + band) * 100
+def gauge(pd_value: float, lo: float, hi: float, threshold: float) -> go.Figure:
+    """Verde: PD < lo (aprova) · amarelo: lo a hi (revisão humana) · vermelho: PD > hi (recusa) · linha: corte por custo.
+    A faixa [lo, hi] vem do valor esperado da revisão (ADR-20) e não é simétrica em torno do corte."""
+    lo_v, hi_v = lo, hi
+    lo, hi = min(lo_v * 100, GAUGE_MAX), min(hi_v * 100, GAUGE_MAX)
     fig = go.Figure(go.Indicator(
         mode="gauge", value=min(pd_value * 100, GAUGE_MAX),
         gauge=dict(
@@ -39,7 +42,7 @@ def gauge(pd_value: float, threshold: float, band: float) -> go.Figure:
         ),
     ))
     fig.add_annotation(x=0.5, y=0.12, text=f"<b>{pd_text(pd_value)}</b>", showarrow=False, font=dict(size=30, color=T["navy"]))
-    fig.add_annotation(x=0.5, y=-0.16, text=f"corte {pct(threshold)} · revisão ±{br(band * 100, 0)} p.p.", showarrow=False,
+    fig.add_annotation(x=0.5, y=-0.16, text=f"corte {pct(threshold)} · revisão de {pct(lo_v)} a {pct(hi_v)}", showarrow=False,
                        font=dict(size=12, color=T["muted"]))
     return _base(fig, 185, margin=dict(l=20, r=20, t=5, b=22))
 
@@ -107,7 +110,8 @@ def ks(curves: dict) -> go.Figure:
 
 def calibration(curves: dict) -> go.Figure:
     fig = go.Figure(go.Scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(color="#94A3B8", dash="dot"), name="Calibração perfeita", hoverinfo="skip"))
-    for key, label, color in (("before", "Antes (probabilidade crua)", T["reject"]), ("after", "Depois (isotônica)", T["navy"])):
+    after = f"Depois ({CALIBRATION_PT.get(curves.get('calibration_method', 'isotonic'), 'calibrado')})"
+    for key, label, color in (("before", "Antes (probabilidade crua)", T["reject"]), ("after", after, T["navy"])):
         c = curves["calibration"][key]
         fig.add_scatter(x=c["mean_pred"], y=c["frac_pos"], mode="lines+markers", name=label, line=dict(color=color, width=3))
     fig.update_xaxes(title="PD prevista (média do decil)", range=[0, 1])

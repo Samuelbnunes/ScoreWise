@@ -26,6 +26,10 @@ _BOUNDS = {
     "dependentes": (0, None),
 }
 _COUNTS = ["linhas_abertas", "financ_imobiliarios", "atrasos_30_59", "atrasos_60_89", "atrasos_90", "dependentes"]
+# Podem vir sem valor: renda ausente vira a flag renda_ausente; idade não entra na decisão (ADR-18),
+# é recebida só para auditoria de equidade e validada quando informada.
+_OPTIONAL = ("renda_mensal", "idade")
+AVISO_RENDA_ZERO = "Renda 0 é tratada como renda não informada."
 
 
 @dataclass
@@ -36,6 +40,7 @@ class PredictionResult:
     reasons: list[str]  # top-3, só fatores que AUMENTAM o risco
     model_version: str
     reason_impacts: list[float] = field(default_factory=list)  # SHAP (log-odds) de cada motivo, p/ a UI
+    avisos: list[str] = field(default_factory=list)  # avisos sobre a entrada (ex.: renda 0 tratada como ausente)
 
 
 @lru_cache(maxsize=1)
@@ -47,10 +52,16 @@ def _validate_frame(df: pd.DataFrame) -> pd.DataFrame:
     missing = [c for c in INPUT_FIELDS if c not in df.columns]
     if missing:
         raise ValueError(f"Campos ausentes: {missing}")
-    out = df[INPUT_FIELDS].apply(pd.to_numeric, errors="coerce").astype(float)
+    raw = df[INPUT_FIELDS]
+    out = raw.apply(pd.to_numeric, errors="coerce").astype(float)
+    # Texto não numérico nunca vira "não informado" em silêncio: só None/NaN/vazio significam ausência.
+    vazio = raw.isna() | raw.apply(lambda s: s.astype(str).str.strip().eq(""))
+    for c in INPUT_FIELDS:
+        if (out[c].isna() & ~vazio[c]).any():
+            raise ValueError(f"'{c}' deve ser numérico")
     for c, (lo, hi) in _BOUNDS.items():
         col = out[c]
-        if c == "renda_mensal":  # renda pode ser desconhecida (NaN): vira a flag renda_ausente
+        if c in _OPTIONAL:
             col = col.dropna()
         elif col.isna().any():
             raise ValueError(f"'{c}' é obrigatório e deve ser numérico")
@@ -59,11 +70,12 @@ def _validate_frame(df: pd.DataFrame) -> pd.DataFrame:
     for c in _COUNTS:
         if (out[c] % 1 != 0).any():
             raise ValueError(f"'{c}' deve ser inteiro")
+    out.loc[out["renda_mensal"] == 0, "renda_mensal"] = np.nan  # mesma regra do clean_static (ADR-19)
     return out
 
 
 def validate_input(d: dict) -> dict:
-    """Valida um dict de entrada e devolve os valores como floats (renda None -> NaN)."""
+    """Valida um dict de entrada e devolve os valores como floats (renda None ou 0 -> NaN; idade pode ser None)."""
     row = _validate_frame(pd.DataFrame([{k: d.get(k) for k in INPUT_FIELDS}]))
     return row.iloc[0].to_dict()
 
@@ -74,12 +86,19 @@ def _model_frame(clean: pd.DataFrame, bundle: dict) -> pd.DataFrame:
     return X[bundle["feature_names_in"]]
 
 
-def decide(pd_value: float, threshold: float, band: float) -> Decision:
-    if pd_value < threshold - band:
+def decide(pd_value: float, lo: float, hi: float) -> Decision:
+    """APROVAR se PD < lo; REVISAR se lo <= PD <= hi; RECUSAR se PD > hi (faixa por valor esperado, ADR-20)."""
+    if pd_value < lo:
         return "APROVAR"
-    if pd_value <= threshold + band:
+    if pd_value <= hi:
         return "REVISAR"
     return "RECUSAR"
+
+
+def review_limits(bundle: dict) -> tuple[float, float]:
+    """(lo, hi) da faixa REVISAR do modelo; faixa vazia -> decisão em 2 faixas no corte (lo = hi = corte)."""
+    band = bundle.get("review_band")
+    return (float(band[0]), float(band[1])) if band else (float(bundle["threshold"]), float(bundle["threshold"]))
 
 
 def predict_batch(df: pd.DataFrame) -> pd.DataFrame:
@@ -92,7 +111,7 @@ def predict_batch(df: pd.DataFrame) -> pd.DataFrame:
     out = pd.DataFrame(
         {
             "pd": pds,
-            "decision": [decide(p, b["threshold"], b["review_band"]) for p in pds],
+            "decision": [decide(p, *review_limits(b)) for p in pds],
         },
         index=df.index,
     )
@@ -101,6 +120,16 @@ def predict_batch(df: pd.DataFrame) -> pd.DataFrame:
         out[f"reason_{i + 1}"] = [r[i][0] if len(r) > i else "" for r in reasons]
         out[f"impact_{i + 1}"] = [r[i][1] if len(r) > i else 0.0 for r in reasons]
     return out
+
+
+def _avisos(d: dict) -> list[str]:
+    r = d.get("renda_mensal")
+    try:
+        if r is not None and str(r).strip() != "" and float(r) == 0:
+            return [AVISO_RENDA_ZERO]
+    except (TypeError, ValueError):
+        pass
+    return []
 
 
 def predict_one(d: dict) -> PredictionResult:
@@ -113,4 +142,5 @@ def predict_one(d: dict) -> PredictionResult:
         reasons=[r[f"reason_{i}"] for i in (1, 2, 3) if r[f"reason_{i}"]],
         model_version=b["model_version"],
         reason_impacts=[float(r[f"impact_{i}"]) for i in (1, 2, 3) if r[f"reason_{i}"]],
+        avisos=_avisos(d),
     )

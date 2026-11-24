@@ -1,4 +1,5 @@
-"""Equidade por faixa etária (fairness.json) e ablação sem idade (stats.json)."""
+"""Equidade por faixa etária (fairness.json) e ablação da idade (stats.json). A idade não é variável do modelo (ADR-18):
+é usada aqui só para auditar o resultado."""
 import sys
 from pathlib import Path
 
@@ -17,10 +18,11 @@ begin("Equidade")
 m = require_metrics("fairness.json", "stats.json")
 fj, stats = m["fairness.json"], m["stats.json"]
 rows = fj["por_faixa"]
-ab = stats["ablacao_sem_idade"]
+ab = stats["ablacao_idade"]
 ref = fj["grupo_referencia"]
 
-section_header("Equidade por faixa etária", f"Teste, corte {br(fj['corte'], 3)} · grupo de referência: {ref} · só a idade pode ser analisada neste dataset")
+section_header("Equidade por faixa etária", f"Teste, corte {br(fj['corte'], 3)} · grupo de referência: {ref} · a idade não é usada pelo modelo; "
+               f"aqui ela serve só para auditar o resultado (é o único atributo sensível do dataset)")
 k = st.columns(3)
 with k[0]:
     kpi_card("Disparate impact mínimo", br(fj["disparate_impact_min"], 3), "limite de alerta: 0,8",
@@ -50,23 +52,39 @@ st.markdown(
     f"A faixa <30 tem só {br(rows[0]['n'], 0)} propostas, então suas taxas têm mais incerteza."
 )
 
-section_header("E se retirarmos a idade do modelo?", "Ablação (Q5): mesmo protocolo de treino, corte por custo recalculado, IC 95% por bootstrap")
-w, s = ab["lgbm"], ab["lgbm_sem_idade"]
-red = ab["gap_reducao_bootstrap"]
-pair = stats["bootstrap"]["pareado"]["lgbm_menos_lgbm_sem_idade"]
+if fj.get("decisao_3_faixas_por_faixa_etaria"):
+    lo3, hi3 = fj["faixa_revisar"]
+    section_header("Decisão em 3 faixas por faixa etária", f"Aprovação automática se PD < {pct(lo3)}; revisão humana de {pct(lo3)} a {pct(hi3)}; recusa acima")
+    st.dataframe(pd.DataFrame([{
+        "Faixa": r["faixa"], "n": br(r["n"], 0), "Aprovação automática": pct(r["aprovacao_automatica"]), "Revisão humana": pct(r["revisar"]),
+        "Recusa": pct(r["recusar"]), "Bons aprovados automaticamente": pct(r["tpr_bom_aprovado_automatico"]),
+        "Disparate impact": br(r["disparate_impact_automatico"], 3),
+    } for r in fj["decisao_3_faixas_por_faixa_etaria"]]), hide_index=True, width="stretch")
+
+section_header("E se a idade estivesse no modelo?", "Contrafactual (Q5): mesma configuração da v0.2 com a idade, mesmo protocolo de treino, "
+               "corte por custo recalculado, IC 95% por bootstrap pareado")
+w, c = ab["lgbm"], ab["lgbm_com_idade"]  # w = modelo final (sem idade); c = contrafactual com idade
+red = ab["gap_reducao_bootstrap"]  # gap(com idade) − gap(final): positivo = tirar a idade reduziu a diferença
+pair = stats["bootstrap"]["pareado"]["lgbm_menos_lgbm_com_idade"]  # final − com idade
 tab = pd.DataFrame([
-    {"Métrica": "AUC", "Com idade": br(w["auc_teste"], 4), "Sem idade": br(s["auc_teste"], 4), "Diferença [IC 95%]": ci_text(pair["auc"]["est"], *pair["auc"]["ci95"], nd=4)},
-    {"Métrica": "Lucro por proposta", "Com idade": br(w["lucro_por_proposta"], 4), "Sem idade": br(s["lucro_por_proposta"], 4),
-     "Diferença [IC 95%]": ci_text(pair["profit"]["est"], *pair["profit"]["ci95"], nd=4)},
-    {"Métrica": "Disparate impact mínimo", "Com idade": br(w["disparate_impact_min"], 3), "Sem idade": br(s["disparate_impact_min"], 3), "Diferença [IC 95%]": "—"},
-    {"Métrica": "Diferença de TPR (60+ − <30), p.p.", "Com idade": br(w["equal_opp_gap_60mais_menos_menor30"] * 100, 2),
-     "Sem idade": br(s["equal_opp_gap_60mais_menos_menor30"] * 100, 2),
-     "Diferença [IC 95%]": ci_text(red["est"] * 100, red["ci95"][0] * 100, red["ci95"][1] * 100, nd=2)},
+    {"Métrica": "AUC", "Modelo final (sem idade)": br(w["auc_teste"], 4), "Com idade": br(c["auc_teste"], 4),
+     "Final − com idade [IC 95%]": ci_text(pair["auc"]["est"], *pair["auc"]["ci95"], nd=4)},
+    {"Métrica": "Lucro por proposta", "Modelo final (sem idade)": br(w["lucro_por_proposta"], 4), "Com idade": br(c["lucro_por_proposta"], 4),
+     "Final − com idade [IC 95%]": ci_text(pair["profit"]["est"], *pair["profit"]["ci95"], nd=4)},
+    {"Métrica": "Disparate impact mínimo", "Modelo final (sem idade)": br(w["disparate_impact_min"], 3), "Com idade": br(c["disparate_impact_min"], 3),
+     "Final − com idade [IC 95%]": "—"},
+    {"Métrica": "Diferença de TPR (60+ − <30), p.p.", "Modelo final (sem idade)": br(w["equal_opp_gap_60mais_menos_menor30"] * 100, 2),
+     "Com idade": br(c["equal_opp_gap_60mais_menos_menor30"] * 100, 2),
+     "Final − com idade [IC 95%]": ci_text(-red["est"] * 100, -red["ci95"][1] * 100, -red["ci95"][0] * 100, nd=2)},
 ])
 st.dataframe(tab, hide_index=True, width="stretch")
+reduz = not red["ic_contem_zero"] and red["est"] > 0
 st.info(
-    f"Retirar a idade custa pouco AUC e não gera perda detectável de lucro, mas reduz a diferença de TPR só de "
-    f"{br(w['equal_opp_gap_60mais_menos_menor30'] * 100, 1)} para {br(s['equal_opp_gap_60mais_menos_menor30'] * 100, 1)} p.p.: o efeito persiste por variáveis correlacionadas "
-    f"(renda, dependentes, linhas de crédito). Retirar o atributo sensível não elimina a discriminação indireta."
+    f"Com a idade, a diferença de TPR entre bons pagadores de 60+ e de menos de 30 anos seria de {br(c['equal_opp_gap_60mais_menos_menor30'] * 100, 1)} p.p.; "
+    f"sem ela, é de {br(w['equal_opp_gap_60mais_menos_menor30'] * 100, 1)} p.p. "
+    + ("Tirar a idade reduz a diferença de forma estatisticamente significativa, mas não a elimina: "
+       if reduz else "A redução não é estatisticamente significativa a 95%: ")
+    + "o efeito persiste por variáveis correlacionadas com a idade (renda, dependentes, linhas de crédito). "
+    "Retirar o atributo sensível não elimina a discriminação indireta."
 )
 end()

@@ -1,7 +1,7 @@
 # ScoreWise: Arquitetura e Plano de Execução
 
 > **Modelo explicável de aprovação de crédito com Machine Learning**
-> Versão do documento: 2.0 · Status: MVP em construção · Seed global: `42`
+> Versão do documento: 2.1 · Modelo v0.2.0 (melhorias de 24/11/2026: `PLANO_MELHORIAS.md` e `LOG_MELHORIAS.md`) · Seed global: `42`
 
 ---
 
@@ -43,7 +43,7 @@ Para cada proposta, o ScoreWise retorna:
 | Q2 | Escolher o corte pelo custo gera mais valor que o corte padrão de 0,5 ou que o corte por F1? | Curva de lucro esperado | F1 |
 | Q3 | Quais variáveis concentram o poder de decisão? | SHAP global | F1 |
 | Q4 | O modelo trata faixas etárias de forma equitativa? | *Disparate impact* e *equal opportunity* | F1 |
-| Q5 | Retirar `age` do modelo reduz a disparidade? A que custo de AUC? | Ablação | F2: **feito** (`stats.py`, só `idade`) |
+| Q5 | Retirar `age` do modelo reduz a disparidade? A que custo de AUC? | Ablação | F2: **feito**; desde a v0.2 a idade está fora do modelo (ADR-18) e o `stats.py` mede o contrafactual "com idade" |
 | Q6 | A decisão é sensível às premissas de custo? | Análise de sensibilidade (−3, −5, −10) | F2: **feito** (`stats.py`) |
 
 ### 1.4 Critérios de sucesso (metas, não resultados)
@@ -52,7 +52,7 @@ Para cada proposta, o ScoreWise retorna:
 | AUC no teste (modelo final) | ≥ 0,85 | Referência pública: topo do *leaderboard* da competição ≈ 0,87 (conferir) |
 | Calibração | Brier menor que o do modelo não calibrado | Brier = erro quadrático médio da probabilidade |
 | Lucro esperado | Corte por custo > corte 0,5 | Sob as premissas da seção 3.3 |
-| Explicabilidade | 100% das recusas com 3 motivos | Na demo |
+| Explicabilidade | Toda recusa com até 3 motivos distintos, só fatores que aumentam o risco | Na demo (ADR-21; antes: "sempre 3 motivos") |
 | Reprodutibilidade | `python src/train.py` gera o mesmo AUC em duas execuções | Seed 42 + versões fixadas |
 
 ---
@@ -91,7 +91,9 @@ Para cada proposta, o ScoreWise retorna:
 | `razao_divida` gigante quando a renda é nula (o campo passa a conter a dívida absoluta) | Flag `renda_ausente` + *clip* p1–p99 | Pipeline |
 | `utilizacao_limite` > 1 (até valores absurdos) | *Clip* p1–p99 | Pipeline |
 | Linhas duplicadas (609 medidas, 0,41%) | Remover **antes** do split | `data.py` |
-| Desbalanceamento (6,70% de positivos após dedup) | `class_weight` + corte por custo | Modelagem |
+| Desbalanceamento (6,70% de positivos após dedup) | Corte por custo (sem `class_weight` desde a v0.2, ADR-15) | Modelagem |
+| Renda 0 com `DebtRatio` em valor (1.634 linhas) | Renda 0 → ausente (ADR-19) | `data.py` |
+| Utilização zero com risco maior que utilização baixa | Flag `sem_uso_rotativo` (ADR-17) | `features.py` |
 
 > Regra: limpezas que **não aprendem nada dos dados** (remover duplicadas, `idade=0`→NaN, códigos 96/98→NaN) podem ser feitas antes do split. Tudo que **aprende parâmetros** (mediana, percentis) fica **dentro do Pipeline**, ajustado só no treino.
 
@@ -136,11 +138,11 @@ O corte empírico (varredura na seção 6.4) deve ficar próximo de 0,286. Se n�
 ### 3.4 Decisão em três faixas (suporte à LGPD, art. 20)
 | PD | Decisão |
 |---|---|
-| `PD < corte − δ` | ✅ Aprovar |
-| `corte − δ ≤ PD ≤ corte + δ` | 🟡 Revisão humana |
-| `PD > corte + δ` | ❌ Recusar |
+| `PD < lo` | ✅ Aprovar |
+| `lo ≤ PD ≤ hi` | 🟡 Revisão humana |
+| `PD > hi` | ❌ Recusar |
 
-δ padrão = 0,05 (configurável). A revisão humana em casos limítrofes é a resposta prática ao direito de revisão de decisões automatizadas.
+Desde a v0.2 (ADR-20), `[lo, hi]` é a faixa em que **revisar vale mais que decidir automaticamente**, calculada em `evaluate.review_band()` a partir da matriz de custos e de um revisor ilustrativo (`REVIEW_PARAMS` em `config.py`: custo 0,2 por revisão; o analista recusa 50% dos maus e aprova 80% dos bons que revisa). Valor de revisar com PD p: `V(p) = (1−p)·g + p·b − custo`, com `g = e·(+1) + (1−e)·(−1)` e `b = s·0 + (1−s)·(−5)`. Com os valores padrão, a faixa é **[0,207; 0,341]** e contém o corte teórico 2/7. Faixa vazia (revisão nunca compensa) vira decisão em 2 faixas no corte. A revisão humana em casos limítrofes é a resposta prática ao direito de revisão de decisões automatizadas. (Até a v0.1: corte ± δ, com δ = 0,05.)
 
 ---
 
@@ -150,8 +152,8 @@ O corte empírico (varredura na seção 6.4) deve ficar próximo de 0,286. Se n�
 |---|---|---|---|---|
 | ADR-01 | Split estratificado 80/20 + CV 5-fold | Split temporal | Sem coluna de data | F1 |
 | ADR-02 | LightGBM como modelo principal | XGBoost/CatBoost | Rápido, nativo com NaN, bom em tabular; os outros vão para a F2 | F1 |
-| ADR-03 | Desbalanceamento via `class_weight` + corte por custo | SMOTE | SMOTE distorce probabilidades e cria vazamento se feito fora do Pipeline | F1 |
-| ADR-04 | Calibração isotônica (`IsotonicRegression(out_of_bounds="clip")`) ajustada sobre as predições OOF cruas da CV 5-fold | `CalibratedClassifierCV(cv=5)` dentro de `cross_val_predict` (25 treinos aninhados); Platt | Um único conjunto de 5 treinos gera métricas, OOF e calibrador; ~120 mil linhas é volume suficiente para a isotônica; Platt fica como comparação (F2) | F1 |
+| ADR-03 | **[Substituída pela ADR-15]** Desbalanceamento via `class_weight` + corte por custo | SMOTE | SMOTE distorce probabilidades e cria vazamento se feito fora do Pipeline | F1 |
+| ADR-04 | **[Substituída pela ADR-16]** Calibração isotônica (`IsotonicRegression(out_of_bounds="clip")`) ajustada sobre as predições OOF cruas da CV 5-fold | `CalibratedClassifierCV(cv=5)` dentro de `cross_val_predict` (25 treinos aninhados); Platt | Um único conjunto de 5 treinos gera métricas, OOF e calibrador; ~120 mil linhas é volume suficiente para a isotônica; Platt fica como comparação (F2) | F1 |
 | ADR-05 | SHAP sobre o modelo **não calibrado** | SHAP no calibrado | O `TreeExplainer` exige árvore pura; a calibração é monotônica, então não muda a ordem dos fatores | F1 |
 | ADR-06 | Artefato único `model.joblib` com metadados | Arquivos soltos | Contrato único para demo, API e testes | F1 |
 | ADR-07 | `src/predict.py` como **único ponto de inferência** | Lógica duplicada no app | Demo e futura API usam o mesmo código | F1 |
@@ -160,8 +162,16 @@ O corte empírico (varredura na seção 6.4) deve ficar próximo de 0,286. Se n�
 | ADR-10 | Scripts em `src/` (sem pacote) | Pacote instalável | Simplicidade no MVP; vira pacote `scorewise` na F3 | F1→F3 |
 | ADR-11 | MLflow para rastrear experimentos | Planilha | Padrão de mercado, roda local | F3 |
 | ADR-12 | FastAPI + Pydantic para servir | Flask | Validação de contrato e OpenAPI automáticos | F3 |
-| ADR-13 | `idade` permanece no modelo, mas **não é exibida como reason code** (`NOT_DISPLAYED_AS_REASON` em `explain.py`); entra o próximo fator positivo | Remover `idade` do modelo; exibir a idade como motivo | Q5 (`stats.json`): remover a idade custa 0,0036 de AUC, não altera o lucro de forma detectável e reduz o gap de TPR só de 6,3 para 5,3 p.p. (proxies persistem). Dizer ao cliente que a recusa se deve ao "perfil etário" é problemático ética e juridicamente. O SHAP continua mostrando a idade ao analista, por transparência | F1 |
-| ADR-14 | Redesign da UI: `st.navigation` com navegação própria, tema claro fixo, Plotly (única dependência nova) e componentes HTML em `app/ui/` | Streamlit padrão (abas + `st.pyplot`) | Aparência de produto e legibilidade em projetor; gráficos interativos sem recalcular nada (curvas vêm de `curves.json`). Limites: a fonte Inter vem do Google Fonts (sem internet cai no fallback do sistema), `number_input` não localiza a vírgula decimal e AppTest testa páginas via `switch_page` | F1 |
+| ADR-13 | **[Substituída pela ADR-18]** `idade` permanece no modelo, mas **não é exibida como reason code** (`NOT_DISPLAYED_AS_REASON` em `explain.py`); entra o próximo fator positivo | Remover `idade` do modelo; exibir a idade como motivo | Q5 (`stats.json`): remover a idade custa 0,0036 de AUC, não altera o lucro de forma detectável e reduz o gap de TPR só de 6,3 para 5,3 p.p. (proxies persistem). Dizer ao cliente que a recusa se deve ao "perfil etário" é problemático ética e juridicamente. O SHAP continua mostrando a idade ao analista, por transparência | F1 |
+| ADR-14 | Redesign da UI: `st.navigation` com navegação própria, tema claro fixo, Plotly (única dependência nova) e componentes HTML em `app/ui/` | Streamlit padrão (abas + `st.pyplot`) | Aparência de produto e legibilidade em projetor; gráficos interativos sem recalcular nada (curvas vêm de `curves.json`). Limites: `number_input` não localiza a vírgula decimal e AppTest testa páginas via `switch_page`. A fonte Inter é servida localmente (`app/static/fonts/`, `enableStaticServing`), então a demo funciona sem internet (`tools/offline_check.py`) | F1 |
+| ADR-15 | LightGBM e logística **sem `class_weight`** | Manter `class_weight="balanced"` + calibração obrigatória | Mesma AUC na CV (0,8642 × 0,8634 na análise de 24/11) e probabilidade crua já próxima da calibrada (Brier OOF 0,0493 × 0,131 com `class_weight`): remove a causa da descalibração em vez de corrigir o sintoma. A logística também fica sem `class_weight`, para os dois partirem do mesmo ponto (decisão do grupo) | v0.2 |
+| ADR-16 | Calibração escolhida por critério (`CALIBRATION_METHOD`, `src/calibration.py`): sem calibrador → Platt → isotônica; adotada **Platt (sigmoide)** sobre as OOF | Isotônica fixa | Critério A4 (ECE OOF ≤ 0,002 e PD média a ±0,2 p.p. da taxa real): sem calibrador, ECE 0,0034; Platt, 0,0019. A isotônica gerava PD em degraus (83 níveis; nenhum entre 0,269 e 0,317), o que tornava qualquer corte de 0,270 a 0,316 equivalente | v0.2 |
+| ADR-17 | **Restrições monotônicas** no LightGBM (`MONOTONE`, método `intermediate`) + flag `sem_uso_rotativo` | Sem restrição | Coerência das decisões: mais atraso, utilização ou razão de dívida nunca reduz o risco; mais renda nunca o aumenta. Na v0.1, variar uma única entrada fazia a decisão ir e voltar (10 reversões nas varreduras); na v0.2, 0. A flag preserva o risco maior de quem tem utilização zero. Custo: cerca de 0,002 de AUC | v0.2 |
+| ADR-18 | **Idade fora do modelo** (`MODEL_EXCLUDED_FEATURES`); usada só para auditar a equidade | ADR-13 (idade no modelo, oculta nos motivos) | Decisão do grupo: atributo sensível; a ADR-13 gerava motivos substitutos enganosos ("dependentes") para quem era penalizado pela idade. O `stats.py` mede o contrafactual com idade | v0.2 |
+| ADR-19 | **Renda 0 = renda não informada** (`clean_static` e `predict.py`, com aviso na demo); com renda ausente, a coluna de dívida é **valor**, não razão | Manter renda 0 como valor | No dado bruto, com renda 0 o `DebtRatio` é dívida em valor (mediana 930; 93% acima de 1), como no grupo de renda nula. Na v0.1, informar renda 0 reduzia a PD (13,6% × 25,4% no perfil Limítrofe) | v0.2 |
+| ADR-20 | **Faixa REVISAR por valor esperado** (`review_band`, `REVIEW_PARAMS`) | Corte ± 0,05 | A faixa passa a ter justificativa econômica explícita (seção 3.4), com sensibilidade aos parâmetros ilustrativos do revisor | v0.2 |
+| ADR-21 | **Motivos agrupados**: o SHAP de variáveis que dizem a mesma coisa (atrasos; renda) é somado e vira um único motivo; até 3 motivos **distintos**, sem obrigação de completar 3 | Um motivo por variável e "sempre 3" | Evita repetir o mesmo fator com outras palavras ("Quantidade elevada de atrasos" + "Atrasos entre 30 e 59 dias") e motivos fracos de preenchimento | v0.2 |
+| — | `divida_mensal` fora do modelo | Manter | Conflita com a monotonia decrescente da renda (é razão × renda) e não perde AUC ao sair (0,8597 × 0,8595 na CV) | v0.2 |
 
 ---
 
@@ -181,7 +191,7 @@ data/raw/cs-training.csv
         ▼                                     │              │
   train.py: Pipeline(pre + modelo)            │              │
    ├─ CV 5-fold → métricas por fold           │              │
-   ├─ OOF cruas → isotônica → corte por custo │              │
+   ├─ OOF cruas → Platt → corte por custo     │              │
    └─ fit final no treino inteiro ◄───────────┘              │
         │                                                    │
         ▼                                                    ▼
@@ -209,15 +219,19 @@ Formulário Streamlit ─► predict.py::predict_one(dict)
 {
     "best_name": str,                            # "lgbm"
     "raw_pipeline": Pipeline,                    # PD = calibrator.predict(raw_pipeline.predict_proba(X)[:, 1]); também usado no SHAP
-    "calibrator": IsotonicRegression,            # ajustado sobre as OOF cruas do treino
+    "calibrator": PlattCalibrator,               # src/calibration.py (CALIBRATION_METHOD), ajustado sobre as OOF cruas do treino
+    "calibration_method": "sigmoid",
+    "excluded_features": ["idade", "divida_mensal"],
+    "monotone_constraints": dict, "monotone_method": "intermediate", "lgbm_params": dict,
     "threshold": float,                          # corte por custo (OOF calibrado)
     "thresholds": {"cost", "f1", "default_0.5", "theoretical"},
-    "review_band": 0.05,                         # δ da revisão humana
+    "review_band": (lo, hi) | None,              # faixa REVISAR por valor esperado (ADR-20)
+    "review_params": dict,                       # parâmetros ilustrativos do revisor
     "feature_names_in": list[str],               # schema de entrada
     "feature_names_out": list[str],              # após o preprocessamento
     "metrics_cv": dict,                          # médias e desvios da CV
     "cost_matrix": dict,
-    "model_version": "0.1.0",
+    "model_version": "0.2.0",
     "trained_at": "ISO-8601",
     "data_sha256": str,                          # hash do CSV de origem
     "seed": 42,
@@ -232,8 +246,10 @@ class PredictionResult:
     pd: float                 # 0–1, calibrada
     score: int | None         # 0–1000 (F2)
     decision: Literal["APROVAR", "REVISAR", "RECUSAR"]
-    reasons: list[str]        # top-3, em PT, só fatores que AUMENTAM o risco
+    reasons: list[str]        # até 3 motivos DISTINTOS, em PT, só fatores que AUMENTAM o risco (ADR-21)
     model_version: str
+    reason_impacts: list[float]  # SHAP de cada motivo (barra do chip na demo)
+    avisos: list[str]         # ex.: "Renda 0 é tratada como renda não informada." (ADR-19)
 ```
 
 ---
@@ -267,19 +283,20 @@ Caminhos (`pathlib`), `SEED`, `TARGET`, `TEST_SIZE`, `COST_MATRIX`. **Adicionar:
 1. Carrega, limpa e divide (via `data.py`).
 2. Define os candidatos:
    - `dummy`: `DummyClassifier(strategy="prior")` (piso de referência)
-   - `logreg`: `LogisticRegression(class_weight="balanced", max_iter=1000)`
-   - `lgbm`: `LGBMClassifier(n_estimators=500, learning_rate=0.03, num_leaves=31, min_child_samples=100, subsample=0.8, subsample_freq=1, colsample_bytree=0.8, class_weight="balanced", random_state=42, verbose=-1)`
+   - `logreg`: `LogisticRegression(max_iter=1000)` (sem `class_weight` desde a v0.2, ADR-15)
+   - `lgbm`: `LGBMClassifier(**LGBM_PARAMS, monotone_constraints=..., monotone_constraints_method="intermediate", random_state=42, verbose=-1)`, com `LGBM_PARAMS` = n_estimators 500, learning_rate 0,03, num_leaves 31, min_child_samples 100, subsample 0,8, colsample_bytree 0,8 (ADR-15, ADR-17)
+   - Os três usam o pré-processador sem `MODEL_EXCLUDED_FEATURES` (idade e divida_mensal; ADR-18)
 3. CV 5-fold estratificada → AUC, Gini, KS, PR-AUC, Brier por fold (média ± desvio).
 4. Escolhe o melhor por AUC médio na CV.
    - A CV (5-fold estratificada, `shuffle=True`, seed 42) roda no pipeline cru e já devolve as **OOF probs cruas** de cada modelo (sem `CalibratedClassifierCV`).
-5. `IsotonicRegression(out_of_bounds="clip")` ajustada sobre (OOF cruas, `y_train`) = calibrador. PD = `calibrator.predict(raw.predict_proba(X)[:, 1])`.
+5. `fit_calibrator(CALIBRATION_METHOD, OOF cruas, y_train)` = calibrador (Platt desde a v0.2, ADR-16). PD = `calibrator.predict(raw.predict_proba(X)[:, 1])`.
 6. **Corte por custo:** varre `t ∈ [0,01; 0,99]` (passo 0,005) sobre `calibrador(OOF)` e escolhe `argmax(lucro)`. Registra também o corte teórico 0,286, o corte de F1 máximo e 0,5.
 7. Ajusta o pipeline cru final no treino inteiro e salva o artefato (5.3) + `models/candidates.joblib` (3 modelos, usado só pelo `evaluate.py`) + `reports/metrics/cv_results.json`.
 8. LightGBM com `n_jobs=-1`, `deterministic=True`, `force_row_wise=True` (métricas idênticas entre execuções).
 
 > Limitação: o corte é escolhido sobre OOF calibradas pelo mesmo calibrador ajustado nessas OOF (otimismo leve); o teste, intocado, é quem valida.
 
-> ⚠️ `class_weight="balanced"` desloca as probabilidades para cima. A calibração **corrige isso**; é por esse motivo que ela é obrigatória aqui, e não opcional.
+> Até a v0.1, `class_weight="balanced"` deslocava as probabilidades para cima e a calibração era obrigatória. Desde a v0.2 (ADR-15), sem `class_weight`, a probabilidade crua já é próxima da real e a calibração só ajusta o restante (ADR-16).
 
 ### 6.5 `src/evaluate.py`
 Roda **uma vez** sobre o teste e gera:
@@ -316,7 +333,11 @@ Roda **uma vez** sobre o teste e gera:
 | `razao_divida` | "Alto comprometimento da renda com dívidas" |
 | `renda_mensal` / `renda_per_capita` | "Renda baixa em relação ao perfil" |
 | `renda_ausente` | "Renda não informada" |
-| `idade` | — (não exibido como motivo; ver ADR-13 e 7.3) |
+| `idade` | — (fora do modelo desde a v0.2, ADR-18; a guarda `NOT_DISPLAYED_AS_REASON` continua) |
+| `sem_uso_rotativo` | "Ausência de uso de crédito rotativo no histórico" |
+| `razao_divida` com renda não informada | "Valor elevado de dívidas mensais" |
+
+Desde a v0.2 (ADR-21), as variáveis de **atraso** (30–59, 60–89, 90+, total, teve atraso grave) e de **renda** (renda, renda per capita) são agrupadas: o SHAP do grupo é somado e vira um único motivo; o texto de atrasos segue o atraso mais grave presente. Até 3 motivos distintos.
 | `linhas_abertas` | "Número de linhas de crédito abertas" |
 
 - ⭐ `figures/shap_waterfall_<perfil>.png` para os 3 perfis da demo.
@@ -331,7 +352,8 @@ Roda **uma vez** sobre o teste e gera:
 
 ### 6.8 `src/predict.py`
 - `load_bundle()` com cache.
-- `validate_input(d)`: tipos e faixas plausíveis (idade 18–100, renda ≥ 0, contagens ≥ 0, utilização 0–10).
+- `validate_input(d)`: tipos e faixas plausíveis (idade 18–100 quando informada, pois é opcional desde a v0.2; renda ≥ 0; contagens ≥ 0; utilização 0–10). Texto não numérico gera erro (antes, renda "abc" virava renda ausente). Renda 0 vira renda não informada, com aviso (ADR-19).
+- `decide(pd, lo, hi)` e `review_limits(bundle)`: decisão em 3 faixas pela faixa por valor (ADR-20).
 - `predict_one(d) -> PredictionResult` e `predict_batch(df)`.
 - Usado pelo Streamlit (F1) e pela API (F3). **Nenhuma lógica de modelo fora daqui.**
 
@@ -340,16 +362,16 @@ Entrypoint `app/streamlit_app.py` (só `st.navigation`, navegação própria no 
 
 | Página | Conteúdo |
 |---|---|
-| **Início** | Hero + CTA, 4 KPIs (AUC com IC 95%, KS, taxa de aprovação, ganho vs. aprovar todos) e "como funciona" em 3 passos |
-| **Simulador** | Perfis rápidos; formulário em 3 blocos; cartão de decisão (ícone + texto), gauge da PD com as 3 faixas e o corte, 3 motivos com barra de participação (SHAP), waterfall SHAP interativo, parecer `.md` para download e histórico da sessão |
-| **Desempenho** | KPIs, abas ROC / PR / KS / calibração / lucro × corte (de `curves.json`), tabela comparativa com IC e sensibilidade de custos (de `stats.json`) |
-| **Explicabilidade** | Importância global (`explain.json`), beeswarm e a política de motivos (ADR-13) |
-| **Equidade** | Barras por faixa etária, DI × 0,8, tabela e ablação sem idade (`fairness.json`, `stats.json`) |
+| **Início** | Hero + CTA, 4 KPIs (AUC com IC 95%, KS, aprovação automática em 3 faixas com a % de revisão, ganho vs. aprovar todos) e "como funciona" em 3 passos |
+| **Simulador** | Perfis rápidos; formulário em 3 blocos (idade marcada como não usada; com renda não informada, o campo de dívida pede o valor); cartão de decisão (ícone + texto), avisos de entrada, gauge da PD com a faixa de revisão [lo, hi] e o corte, até 3 motivos com barra de participação (SHAP), waterfall SHAP interativo, parecer `.md` para download e histórico da sessão |
+| **Desempenho** | KPIs, abas ROC / PR / KS / calibração / lucro × corte (de `curves.json`), decisão em 3 faixas, tabela comparativa com IC, sensibilidade de custos e da faixa de revisão (de `stats.json`) |
+| **Explicabilidade** | Importância global (`explain.json`), beeswarm, política de motivos agrupados (ADR-21) e motivos mais frequentes nas recusas |
+| **Equidade** | Barras por faixa etária, DI × 0,8, tabela, decisão em 3 faixas por faixa etária e contrafactual "com idade" (`fairness.json`, `stats.json`) |
 | **Sobre** | Metodologia, premissas de custo, LGPD (conferir a norma), limitações L1–L6, roadmap e créditos |
 
 Regras: nenhuma lógica de modelo no app (tudo via `predict.py`/`explain.py`); todo número exibido é lido de `reports/metrics/*.json` (`evaluate.py` salva as curvas em `curves.json`); decisão nunca só por cor; a renda está na unidade do dataset (não é R$); aviso de protótipo no rodapé e em Sobre. `PredictionResult` ganhou o campo opcional `reason_impacts` (SHAP de cada motivo, para a barra do chip).
 
-**Perfis pré-definidos** (valores ajustados após o treino, T6.5: PD 0,005 → APROVAR; 0,254 → REVISAR; 0,688 → RECUSAR):
+**Perfis pré-definidos** (valores ajustados após o treino, T6.5; com o modelo v0.2.0 e a faixa [0,207; 0,341], sem mudar os valores: PD 0,007 → APROVAR; 0,257 → REVISAR; 0,614 → RECUSAR. A idade dos perfis não influi na PD desde a v0.2):
 | Campo | Bom | Limítrofe | Arriscado |
 |---|---|---|---|
 | idade | 62 | 33 | 24 |
@@ -366,9 +388,11 @@ Regras: nenhuma lógica de modelo no app (tudo via `predict.py`/`explain.py`); t
 ### 6.10 Testes (`tests/`)
 | Arquivo | Teste | Fase |
 |---|---|---|
-| `test_data.py` | `load_raw` falha com uma coluna faltando; `clean_static` converte 96/98 e `age=0` em NaN | F1 |
-| `test_features.py` | Saída do preprocessor sem NaN; flag `renda_ausente` correta; sem vazamento (percentis aprendidos só no fit) | F1 |
-| `test_predict.py` | PD ∈ [0,1]; decisão ∈ {3 valores}; 3 motivos para RECUSAR; input inválido → `ValueError` | F1 |
+| `test_data.py` | `load_raw` falha com uma coluna faltando; `clean_static` converte 96/98, `age=0` e renda 0 em NaN | F1 / v0.2 |
+| `test_features.py` | Saída do preprocessor sem NaN; flags `renda_ausente` e `sem_uso_rotativo` corretas; sem vazamento; pré-processador final sem idade e sem `divida_mensal`; motivos agrupados (pulados sem o CSV) | F1 / v0.2 |
+| `test_predict.py` | PD ∈ [0,1]; perfis nas 3 faixas; até 3 motivos distintos; input inválido → `ValueError`; renda 0 = não informada; idade não influi; monotonia de renda e atrasos | F1 / v0.2 |
+| `test_review.py` | Faixa REVISAR por valor: padrão, sensibilidade, valor de revisar dentro e fora da faixa | v0.2 |
+| `test_app.py` | 6 páginas carregam; perfis no Simulador; aviso de renda 0; campo de dívida em valor sem renda | F1 / v0.2 |
 | `test_api.py` | `/health` 200; `/v1/predict` com payload válido e inválido | F3 |
 
 Configuração: `pytest.ini` com `pythonpath = src` (resolve o `from config import ...`). Fixture com amostra de 2.000 linhas para rodar em segundos.
@@ -399,7 +423,7 @@ Configuração: `pytest.ini` com `pythonpath = src` (resolve o `from config impo
 | Documentação | Model card (F2) |
 
 ### 7.3 Pontos éticos para discutir
-- **Idade como variável:** é preditiva, mas é um atributo sensível. A pergunta Q5 (ablação) quantifica o trade-off entre desempenho e equidade.
+- **Idade como variável:** é preditiva, mas é um atributo sensível. A pergunta Q5 (ablação) quantifica o trade-off entre desempenho e equidade. Desde a v0.2 a idade está fora do modelo (ADR-18); a disparidade por idade persiste em parte por variáveis correlacionadas.
 - **Variáveis proxy:** renda e número de dependentes podem carregar informação socioeconômica correlacionada a grupos protegidos.
 - **Reject inference:** o modelo só vê quem foi aprovado no passado (viés de seleção). Técnicas a apresentar: *reweighting/augmentation* e *parceling* (sem implementação; o dataset não tem recusados).
 - **Feedback loop:** em produção, quem é recusado nunca gera rótulo, o que reforça o viés com o tempo.
@@ -481,8 +505,9 @@ ScoreWise/
 │   ├── explain.py               # F1
 │   ├── fairness.py              # F1
 │   ├── predict.py               # F1 (ponto único de inferência)
+│   ├── calibration.py           # v0.2: calibradores com a mesma interface (ADR-16)
 │   ├── scorecard.py             # F2
-│   ├── stats.py                 # bootstrap, ablação sem idade, sensibilidade (T8.1–T8.4 feitos)
+│   ├── stats.py                 # bootstrap, contrafactual com idade, sensibilidades de custo e da faixa de revisão
 │   └── monitoring.py            # F3 (PSI/CSI)
 ├── app/
 │   └── streamlit_app.py         # F1
@@ -501,6 +526,8 @@ ScoreWise/
 │   ├── test_data.py
 │   ├── test_features.py
 │   ├── test_predict.py
+│   ├── test_review.py           # v0.2: faixa REVISAR por valor (ADR-20)
+│   ├── test_app.py              # demo (AppTest)
 │   └── test_api.py              # F3
 ├── pytest.ini
 ├── requirements.txt             ✅
@@ -651,15 +678,24 @@ ScoreWise/
 
 #### E8. Robustez estatística
 - [x] **T8.1** IC 95% da AUC, KS e lucro no teste por bootstrap (1.000 reamostragens)
-- [x] **T8.2** Bootstrap pareado lgbm × logreg (Q1): o IC da diferença contém 0? (não contém: ΔAUC +0,0058 [0,0031; 0,0090])
-- [x] **T8.3** Ablação: ~~sem features derivadas~~ (pendente); sem `idade` (Q5) feito
+- [x] **T8.2** Bootstrap pareado lgbm × logreg (Q1): o IC da diferença contém 0? (v0.2.0: ΔAUC +0,0070 [0,0038; 0,0102], não contém; Δlucro +0,0023 [−0,0024; 0,0071], contém)
+- [x] **T8.3** Ablação: ~~sem features derivadas~~ (pendente); idade (Q5) feito. Na v0.2.0, o modelo final é sem idade e o contrafactual com idade dá ΔAUC −0,0029 [−0,0053; −0,0010] e redução de 1,08 p.p. [0,44; 1,68] na diferença de TPR
 - [x] **T8.4** Sensibilidade da matriz de custos: perda de −3, −5 e −10 (Q6)
 - [ ] **T8.5** Curva de aprendizado (AUC × tamanho do treino)
+
+#### E8b. Melhorias v0.2.0 (24/11/2026; detalhes em `PLANO_MELHORIAS.md` e `LOG_MELHORIAS.md`)
+- [x] Renda 0 = não informada; validação de entrada sem coerção silenciosa (ADR-19)
+- [x] Sem `class_weight`; calibração por critério (Platt) (ADR-15, ADR-16)
+- [x] Restrições monotônicas + flag `sem_uso_rotativo`; `divida_mensal` fora (ADR-17)
+- [x] Idade fora do modelo; contrafactual com idade no `stats.py` (ADR-18)
+- [x] Faixa REVISAR por valor esperado + sensibilidade (ADR-20)
+- [x] Motivos agrupados, até 3 distintos (ADR-21)
+- [x] Busca aleatória de hiperparâmetros (14 configurações): ganho abaixo do mínimo exigido; parâmetros mantidos
 
 #### E9. Modelos adicionais
 - [ ] **T9.1** XGBoost com `scale_pos_weight`
 - [ ] **T9.2** Optuna (30 trials, CV 5-fold) no LightGBM
-- [ ] **T9.3** Calibração Platt × isotônica (Brier)
+- [x] **T9.3** Calibração Platt × isotônica (Brier e ECE na CV): feito na v0.2 (ADR-16)
 - [ ] **T9.4** Experimento com SMOTE dentro do `imblearn.Pipeline`, para demonstrar o efeito na calibração
 
 #### E10. Scorecard tradicional

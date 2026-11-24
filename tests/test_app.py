@@ -49,8 +49,8 @@ def test_simulador_pd_nos_extremos_e_motivos():
     at.button(key="perfil_arriscado").click().run()
     at.button(key="analisar").click().run()
     chips = [m.value for m in at.markdown if "sw-chip" in m.value and "<style>" not in m.value]
-    assert len(chips) == 3
-    assert not any("etário" in c for c in chips)  # ADR-13
+    assert 1 <= len(chips) <= 3  # até 3 motivos distintos (ADR-21)
+    assert not any("etário" in c or "Idade" in c for c in chips)  # a idade nunca é motivo (ADR-18)
     assert re.search(r"[\d,]+%", _card_html(at))
 
 
@@ -60,6 +60,22 @@ def test_simulador_entrada_invalida_mostra_erro_sem_quebrar():
     at.number_input(key="f_utilizacao_limite").set_value(10.0).run()
     at.button(key="analisar").click().run()
     assert not at.exception
+
+
+def test_simulador_renda_zero_mostra_aviso():
+    # ADR-19: renda 0 é tratada como renda não informada, e a tela avisa
+    at = _open("2_simulador")
+    at.button(key="perfil_limitrofe").click().run()
+    at.number_input(key="f_renda_mensal").set_value(0.0).run()
+    at.button(key="analisar").click().run()
+    assert not at.exception, at.exception
+    assert any("Renda 0" in w.value for w in at.warning)
+
+
+def test_simulador_sem_renda_pede_divida_em_valor():
+    at = _open("2_simulador")
+    at.checkbox(key="f_sem_renda").check().run()
+    assert at.number_input(key="f_razao_divida").label == "Dívida mensal total (valor)"
 
 
 def test_motivos_rotulam_peso_relativo():

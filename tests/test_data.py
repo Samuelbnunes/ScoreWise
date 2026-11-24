@@ -37,6 +37,19 @@ def test_clean_static_converte_codigos_e_idade_zero_em_nan():
     assert not out[["atrasos_30_59", "atrasos_60_89", "atrasos_90"]].isin([96, 98]).any().any()
 
 
+def test_clean_static_trata_renda_zero_como_ausente():
+    # ADR-19: renda 0 = renda não informada (no dado bruto, com renda 0 o DebtRatio é dívida em valor)
+    df = _raw_sample()
+    df.loc[1, "MonthlyIncome"] = 0
+    df.loc[2, "MonthlyIncome"] = np.nan
+    df.loc[3, "MonthlyIncome"] = 2500
+    n_zero_ou_nulo = int(((df["MonthlyIncome"] == 0) | df["MonthlyIncome"].isna()).sum())
+    out = clean_static(df)
+    assert out["renda_mensal"].isna().sum() == n_zero_ou_nulo
+    assert not (out["renda_mensal"] == 0).any()
+    assert out.loc[3, "renda_mensal"] == 2500
+
+
 def test_deduplicate_e_split_estratificado():
     df = clean_static(_raw_sample())
     dup = pd.concat([df, df.iloc[:5]], ignore_index=True)

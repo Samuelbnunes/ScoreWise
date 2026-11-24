@@ -13,13 +13,14 @@ import streamlit as st
 
 from config import PROFILES
 from explain import explanation_for
-from predict import _model_frame, _validate_frame, load_bundle, predict_one
+from predict import _model_frame, _validate_frame, load_bundle, predict_one, review_limits
 from ui import charts
 from ui.components import begin, br, decision_card, empty_state, end, pct, pd_text, reason_chip, section_header
 
 begin("Simulador")
 bundle = load_bundle()
-THRESH, BAND = bundle["threshold"], bundle["review_band"]
+THRESH = bundle["threshold"]
+LO, HI = review_limits(bundle)  # faixa REVISAR por valor esperado (ADR-20)
 DECISION_PT = {"APROVAR": "✅ Aprovar", "REVISAR": "🟡 Revisar", "RECUSAR": "❌ Recusar"}
 
 # chave, rótulo, tipo, mín, máx, passo, ajuda em linguagem simples
@@ -30,12 +31,12 @@ BLOCKS = {
 }
 FIELDS = {
     "Perfil": [
-        ("idade", "Idade (anos)", "int", 18, 100, 1, "Idade do solicitante. Entra no modelo, mas não é exibida como motivo da decisão."),
+        ("idade", "Idade (não usada na decisão)", "int", 18, 100, 1, "A idade não entra no modelo (v0.2). É registrada só para auditar a equidade por faixa etária."),
         ("dependentes", "Dependentes", "int", 0, 20, 1, "Número de pessoas dependentes financeiramente do solicitante."),
     ],
     "Renda e dívidas": [
         ("renda_mensal", "Renda mensal (unid. do dataset)", "float", 0.0, 1_000_000.0, 100.0, "Renda mensal, na unidade monetária do dataset (não é R$)."),
-        ("razao_divida", "Dívida ÷ renda", "float", 0.0, 100.0, 0.05, "Despesas mensais com dívidas divididas pela renda mensal. 0,5 = metade da renda comprometida."),
+        ("razao_divida", "Dívida ÷ renda", "float", 0.0, 1_000_000.0, 0.05, "Despesas mensais com dívidas divididas pela renda mensal. 0,5 = metade da renda comprometida."),
         ("utilizacao_limite", "Utilização do limite", "float", 0.0, 10.0, 0.05, "Saldo de cartões e linhas rotativas ÷ limite total. 1,0 = limite todo usado."),
         ("linhas_abertas", "Linhas de crédito abertas", "int", 0, 100, 1, "Empréstimos e linhas de crédito ativos."),
         ("financ_imobiliarios", "Financiamentos imobiliários", "int", 0, 50, 1, "Quantidade de financiamentos imobiliários ou linhas com garantia de imóvel."),
@@ -92,6 +93,10 @@ with left:
                 st.checkbox("Renda não informada", key="f_sem_renda", help="Marque se o solicitante não declarou renda. O modelo trata isso como um sinal próprio.")
             cols = st.columns(2)
             for i, (key, label, kind, lo, hi, step, help_) in enumerate(FIELDS[block]):
+                if key == "razao_divida" and st.session_state["f_sem_renda"]:
+                    # Sem renda, a coluna do dataset é a dívida mensal em VALOR, não a razão (ADR-19).
+                    label, step = "Dívida mensal total (valor)", 50.0
+                    help_ = "Com a renda não informada, o modelo usa o valor das despesas mensais com dívidas (unidade do dataset), e não a razão dívida ÷ renda."
                 with cols[i % 2]:
                     st.number_input(label, lo, hi, step=step, key=f"f_{key}", help=help_,
                                     disabled=(key == "renda_mensal" and st.session_state["f_sem_renda"]),
@@ -121,9 +126,11 @@ with right:
         detail = {"APROVAR": "risco abaixo da faixa de revisão", "REVISAR": "caso limítrofe: encaminhar para revisão humana",
                   "RECUSAR": "risco acima da faixa de revisão"}[res.decision]
         decision_card(res.decision, pd_text(res.pd), detail, st.session_state["uid"])
+        for aviso in res.avisos:
+            st.warning(aviso)
         with st.container(border=True):
-            st.plotly_chart(charts.gauge(res.pd, THRESH, BAND), width="stretch", config=charts.CFG)
-            st.caption("Verde aprova · amarelo revisa · vermelho recusa · linha escura = corte")
+            st.plotly_chart(charts.gauge(res.pd, LO, HI, THRESH), width="stretch", config=charts.CFG)
+            st.caption("Verde aprova · amarelo vai para revisão humana · vermelho recusa · linha escura = corte por custo")
         title = ("Fatores de risco com maior peso (impacto pequeno; a proposta foi aprovada)" if res.decision == "APROVAR"
                  else "Principais motivos")
         st.markdown(f"**{title}**")
@@ -144,9 +151,10 @@ with right:
             f"# Parecer de crédito · ScoreWise\n\n"
             f"- Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n- Modelo: v{res.model_version} ({bundle['best_name']})\n"
             f"- **Decisão: {res.decision}**\n- Probabilidade de inadimplência: {pd_text(res.pd)} "
-            f"(corte {pct(THRESH)}; faixa de revisão ±{br(BAND * 100, 0)} p.p.)\n\n"
+            f"(corte {pct(THRESH)}; faixa de revisão humana de {pct(LO)} a {pct(HI)})\n\n"
             f"## Principais motivos\n{motivos}\n\n## Dados informados\n{linhas}\n"
-            f"- (renda na unidade monetária do dataset; não é R$)\n\n"
+            f"- (renda na unidade monetária do dataset; não é R$; a idade não é usada na decisão)\n"
+            + "".join(f"- Aviso: {a}\n" for a in res.avisos) + "\n"
             f"## Avisos\nProtótipo acadêmico; premissas de custo ilustrativas; não usar para decisões reais de crédito. "
             f"Decisões automatizadas podem ser revistas por um humano (LGPD, art. 20; conferir a norma vigente).\n"
         )
@@ -158,7 +166,7 @@ if res is not None:
     with st.container(border=True):
         X = _model_frame(_validate_frame(pd.DataFrame([st.session_state["inputs"]])), bundle)
         st.plotly_chart(charts.waterfall(explanation_for(bundle, X)), width="stretch", config=charts.CFG)
-        st.caption("Unidade: log-odds do modelo cru (antes da calibração). A idade aparece aqui por transparência, mas não é usada como motivo (ADR-13).")
+        st.caption("Unidade: log-odds do modelo cru (antes da calibração). A idade não é usada pelo modelo, por isso não aparece aqui.")
 
 if st.session_state.get("history"):
     section_header("Histórico da sessão")

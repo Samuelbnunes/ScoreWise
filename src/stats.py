@@ -1,5 +1,6 @@
-"""Rigor estatístico (F2 barata): bootstrap no teste (T8.1/T8.2), ablação sem `idade` (T8.3, Q5)
-e sensibilidade da matriz de custos (T8.4, Q6). Saída: reports/metrics/stats.json.
+"""Rigor estatístico: bootstrap no teste (T8.1/T8.2), ablação da idade (T8.3, Q5), sensibilidade da matriz de
+custos (T8.4, Q6) e da faixa REVISAR (E3). Saída: reports/metrics/stats.json.
+v0.2.0: o modelo final NÃO usa idade (ADR-18); a ablação compara com o contrafactual "com idade" (mesmo protocolo).
 O teste é lido só para avaliar; corte e calibrador vêm do treino (OOF), como no train.py."""
 import json
 
@@ -7,12 +8,12 @@ import joblib
 import numpy as np
 from scipy.stats import ks_2samp
 from sklearn.base import clone
-from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import brier_score_loss, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 
-from config import COST_MATRIX, CV_FOLDS, METRICS_DIR, MODEL_PATH, SEED
+from calibration import fit_calibrator
+from config import CALIBRATION_METHOD, COST_MATRIX, CV_FOLDS, METRICS_DIR, MODEL_EXCLUDED_FEATURES, MODEL_PATH, SEED
 from data import clean_static, deduplicate, load_raw, split
 from evaluate import (
     CANDIDATES_PATH,
@@ -21,25 +22,26 @@ from evaluate import (
     portfolio_stats,
     profit_at,
     profit_curve,
+    review_sensitivity,
     theoretical_threshold,
 )
 from fairness import group_table
 from features import build_preprocessor
-from train import build_candidates
+from train import build_candidates, build_lgbm
 
 B = 1000
 LOSSES = (-3, -5, -10)
 
 
 def oof_and_final(pipe, X, y):
-    """Mesmo protocolo do train.py: CV 5-fold -> OOF cruas -> isotônica; fit final no treino todo."""
+    """Mesmo protocolo do train.py: CV 5-fold -> OOF cruas -> calibrador (CALIBRATION_METHOD); fit final no treino todo."""
     skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
     oof, aucs = np.zeros(len(y)), []
     for tr, va in skf.split(X, y):
         p = clone(pipe).fit(X.iloc[tr], y.iloc[tr]).predict_proba(X.iloc[va])[:, 1]
         oof[va] = p
         aucs.append(float(roc_auc_score(y.iloc[va], p)))
-    cal = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(oof, y)
+    cal = fit_calibrator(CALIBRATION_METHOD, oof, y)
     return oof, cal, clone(pipe).fit(X, y), aucs
 
 
@@ -63,10 +65,12 @@ def main():
     cv_json = json.loads((METRICS_DIR / "cv_results.json").read_text(encoding="utf-8"))["models"]
 
     base = build_candidates()["lgbm"]
-    sem_idade = Pipeline([("pre", build_preprocessor("tree", drop_cols=("idade",))), ("clf", clone(base[-1]))])
+    # Contrafactual: mesma configuração da v0.2.0, mas COM idade (sem restrição monotônica nela).
+    drop_com_idade = tuple(c for c in MODEL_EXCLUDED_FEATURES if c != "idade")
+    com_idade = Pipeline([("pre", build_preprocessor("tree", drop_cols=drop_com_idade)), ("clf", build_lgbm(drop_com_idade))])
 
     M = {}
-    for name, pipe in (("lgbm", base), ("lgbm_sem_idade", sem_idade)):
+    for name, pipe in (("lgbm", base), ("lgbm_com_idade", com_idade)):
         oof, cal, final, aucs = oof_and_final(pipe, X_tr, y_tr)
         raw = final.predict_proba(X_te)[:, 1]
         pd_oof = cal.predict(oof)
@@ -114,22 +118,22 @@ def main():
     def paired(a, b):
         return {k: _summ(boot[a][k] - boot[b][k], pt[a][k] - pt[b][k]) for k in ("auc", "ks", "profit")}
 
-    paired_out = {"lgbm_menos_logreg": paired("lgbm", "logreg"), "lgbm_menos_lgbm_sem_idade": paired("lgbm", "lgbm_sem_idade")}
+    paired_out = {"lgbm_menos_logreg": paired("lgbm", "logreg"), "lgbm_menos_lgbm_com_idade": paired("lgbm", "lgbm_com_idade")}
 
-    folds = {m: M[m]["cv_auc"] for m in ("lgbm", "logreg", "lgbm_sem_idade")}
+    folds = {m: M[m]["cv_auc"] for m in ("lgbm", "logreg", "lgbm_com_idade")}
     d = np.array(folds["lgbm"]) - np.array(folds["logreg"])
     cv_fold_out = {
         **{k: [float(x) for x in v] for k, v in folds.items()},
         "dif_lgbm_logreg": [float(x) for x in d],
         "dif_media": float(d.mean()), "dif_desvio": float(d.std(ddof=1)),
         "lgbm_vence_em_todos_os_folds": bool((d > 0).all()),
-        "dif_lgbm_menos_sem_idade_media": float((np.array(folds["lgbm"]) - np.array(folds["lgbm_sem_idade"])).mean()),
+        "dif_lgbm_menos_com_idade_media": float((np.array(folds["lgbm"]) - np.array(folds["lgbm_com_idade"])).mean()),
     }
 
-    # ---------- T8.3: ablação sem idade ----------
+    # ---------- T8.3: ablação da idade (final sem idade × contrafactual com idade) ----------
     ok = ~np.isnan(age)
     abl = {}
-    for m in ("lgbm", "lgbm_sem_idade"):
+    for m in ("lgbm", "lgbm_com_idade"):
         app = M[m]["pd"] < M[m]["thr"]
         t = group_table(X_te["idade"][ok], y[ok], app[ok])
         ps = portfolio_stats(y, M[m]["pd"], M[m]["thr"])
@@ -146,9 +150,10 @@ def main():
             "equal_opp_gap_max_min": float(t["tpr_bom_aprovado"].max() - t["tpr_bom_aprovado"].min()),
             "gap_bootstrap": _summ(boot[m]["gap"], t.loc["60+", "tpr_bom_aprovado"] - t.loc["<30", "tpr_bom_aprovado"]),
         }
-    gap_diff = boot["lgbm"]["gap"] - boot["lgbm_sem_idade"]["gap"]
-    abl["gap_reducao_bootstrap"] = _summ(gap_diff, abl["lgbm"]["equal_opp_gap_60mais_menos_menor30"]
-                                         - abl["lgbm_sem_idade"]["equal_opp_gap_60mais_menos_menor30"])
+    # Positivo = tirar a idade (modelo final) reduziu a diferença de TPR em relação ao contrafactual com idade.
+    gap_diff = boot["lgbm_com_idade"]["gap"] - boot["lgbm"]["gap"]
+    abl["gap_reducao_bootstrap"] = _summ(gap_diff, abl["lgbm_com_idade"]["equal_opp_gap_60mais_menos_menor30"]
+                                         - abl["lgbm"]["equal_opp_gap_60mais_menos_menor30"])
 
     # ---------- T8.4: sensibilidade da perda por mau aprovado (sem retreino) ----------
     pd_oof, pd_te = M["lgbm"]["pd_oof"], M["lgbm"]["pd"]
@@ -169,14 +174,17 @@ def main():
             "lucro_teste_aprovar_todos": aa,
             "lucro_teste_recusar_todos": ra,
             "ganho_pct_sobre_aprovar_todos": (lucro - aa) / abs(aa) * 100,
-            "lucro_teste_mantendo_corte_0.270": profit_at(y, pd_te, t_base, c) / n,
+            "corte_base": float(t_base),
+            "lucro_teste_mantendo_corte_base": profit_at(y, pd_te, t_base, c) / n,
             "lucro_teste_corte_0.5": profit_at(y, pd_te, 0.5, c) / n,
             "taxa_aprovacao": ps["approval_rate"],
             "inadimplencia_aprovados": ps["default_rate_approved"],
         })
 
     out = {"bootstrap": {"B": B, "seed": SEED, "n_teste": n, "modelos": models_ci, "pareado": paired_out},
-           "auc_por_fold_cv": cv_fold_out, "ablacao_sem_idade": abl, "sensibilidade_custo": sens}
+           "auc_por_fold_cv": cv_fold_out, "ablacao_idade": abl, "sensibilidade_custo": sens,
+           # E3: faixa REVISAR × parâmetros ilustrativos da revisão (corte e PD do modelo final, no teste)
+           "sensibilidade_revisao": review_sensitivity(y, M["lgbm"]["pd"], M["lgbm"]["thr"])}
     (METRICS_DIR / "stats.json").write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
     f = lambda x: f"{x:.4f}"
@@ -191,6 +199,9 @@ def main():
     print(json.dumps({k: v for k, v in abl.items()}, indent=1, ensure_ascii=False))
     print("== Sensibilidade ==")
     for s in sens:
+        print({k: (round(v, 4) if isinstance(v, float) else v) for k, v in s.items()})
+    print("== Sensibilidade da faixa REVISAR ==")
+    for s in out["sensibilidade_revisao"]:
         print({k: (round(v, 4) if isinstance(v, float) else v) for k, v in s.items()})
 
 

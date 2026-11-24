@@ -2,82 +2,82 @@
   "bootstrap": {
     "B": 1000,
     "seed": 42,
-    "n_teste": 29879,
+    "n_teste": 29871,
     "modelos": {
       "lgbm": {
         "auc": {
-          "est": 0.8647870227129114,
+          "est": 0.8644123198915261,
           "ci95": [
-            0.8560410158515392,
-            0.873135891825852
+            0.8561134739177582,
+            0.8723627855128039
           ],
           "ic_contem_zero": false
         },
         "ks": {
-          "est": 0.5814714037263091,
+          "est": 0.5672527981545169,
           "ci95": [
-            0.5647272447569845,
-            0.6004620564076434
+            0.5511474052554616,
+            0.5868574899165949
           ],
           "ic_contem_zero": false
         },
         "profit_per_proposal": {
-          "est": 0.6752903376953713,
+          "est": 0.6763750795085535,
           "ci95": [
-            0.6613315372000401,
-            0.6889144549683724
+            0.6624426701483044,
+            0.6892663452847243
           ],
           "ic_contem_zero": false
         }
       },
-      "lgbm_sem_idade": {
+      "lgbm_com_idade": {
         "auc": {
-          "est": 0.8611416473901677,
+          "est": 0.8673400050736877,
           "ci95": [
-            0.8523856353807949,
-            0.8698602868163311
+            0.8593159859432058,
+            0.8754055133972756
           ],
           "ic_contem_zero": false
         },
         "ks": {
-          "est": 0.5726766865877961,
+          "est": 0.5760357730467889,
           "ci95": [
-            0.5577815310332259,
-            0.5926660012292201
+            0.5621369975088519,
+            0.5953278641102696
           ],
           "ic_contem_zero": false
         },
         "profit_per_proposal": {
-          "est": 0.6755246159510023,
+          "est": 0.6789863077901643,
           "ci95": [
-            0.6628635496502561,
-            0.6891135914856589
+            0.6649852699943088,
+            0.6921470657159118
           ],
           "ic_contem_zero": false
         }
       },
       "logreg": {
         "auc": {
-          "est": 0.859033781084217,
+          "est": 0.8574198326701107,
           "ci95": [
-            0.8501223435763838,
-            0.8673337075352942
+            0.8489584059904893,
+            0.86595990569625
           ],
           "ic_contem_zero": false
         },
         "ks": {
-          "est": 0.5655293696510469,
+          "est": 0.5531402287475344,
           "ci95": [
-            0.5489584711429334,
-            0.5854619706582906
+            0.5362309496401046,
+            0.5721029119834834
           ],
           "ic_contem_zero": false
         },
         "profit_per_proposal": {
-          "est": 0.6689982931155661,
+          "est": 0.6740316695122359,
           "ci95": [
-            0.6553097493222665,
-            0.6829252987047759
+            0.6601385959626394,
+            0.6873949650162365
           ],
           "ic_contem_zero": false
         }
@@ -86,52 +86,52 @@
     "pareado": {
       "lgbm_menos_logreg": {
         "auc": {
-          "est": 0.005753241628694394,
+          "est": 0.006992487221415433,
           "ci95": [
-            0.003076475619981647,
-            0.009033673215493395
+            0.0038346837648526922,
+            0.010238157441750223
           ],
           "ic_contem_zero": false
         },
         "ks": {
-          "est": 0.01594203407526218,
+          "est": 0.014112569406982467,
           "ci95": [
-            0.003808866078957374,
-            0.026395724008436094
+            0.0022633592010973427,
+            0.026545096828209956
           ],
           "ic_contem_zero": false
         },
         "profit": {
-          "est": 0.006292044579805145,
+          "est": 0.002343409996317547,
           "ci95": [
-            0.0014383011479634112,
-            0.011280498008634812
-          ],
-          "ic_contem_zero": false
-        }
-      },
-      "lgbm_menos_lgbm_sem_idade": {
-        "auc": {
-          "est": 0.0036453753227436714,
-          "ci95": [
-            0.0013821217391086994,
-            0.005846181897107727
-          ],
-          "ic_contem_zero": false
-        },
-        "ks": {
-          "est": 0.008794717138512986,
-          "ci95": [
-            -0.002024715649177086,
-            0.015637011074527345
+            -0.002410364567640877,
+            0.00706956579960493
           ],
           "ic_contem_zero": true
+        }
+      },
+      "lgbm_menos_lgbm_com_idade": {
+        "auc": {
+          "est": -0.002927685182161577,
+          "ci95": [
+            -0.005285207468497463,
+            -0.0009872558624985958
+          ],
+          "ic_contem_zero": false
+        },
+        "ks": {
+          "est": -0.008782974892271977,
+          "ci95": [
+            -0.019469056967464912,
+            -0.00015764412541389644
+          ],
+          "ic_contem_zero": false
         },
         "profit": {
-          "est": -0.00023427825563104854,
+          "est": -0.0026112282816108667,
           "ci95": [
-            -0.0038170621506744243,
-            0.0028121757756284053
+            -0.005792407351611966,
+            0.000569113856248582
           ],
           "ic_contem_zero": true
         }
@@ -140,108 +140,108 @@
   },
   "auc_por_fold_cv": {
     "lgbm": [
-      0.8611138122098734,
-      0.8620565656545299,
-      0.8640764352332257,
-      0.8674313347440663,
-      0.8623407705505344
+      0.8626987766749289,
+      0.8639005617004062,
+      0.8619090809889928,
+      0.847712050343059,
+      0.86208169961054
     ],
     "logreg": [
-      0.85431037421778,
-      0.8582065622312721,
-      0.8572192573579006,
-      0.8600629102125282,
-      0.8596365422366593
+      0.8570632862767694,
+      0.8573112453964983,
+      0.8484369561018082,
+      0.8393428557700887,
+      0.8535931302187086
     ],
-    "lgbm_sem_idade": [
-      0.8575013375337238,
-      0.8596129389852298,
-      0.8583357039893204,
-      0.8626823578745639,
-      0.8602313651945204
+    "lgbm_com_idade": [
+      0.8663056859571421,
+      0.8670209342977638,
+      0.8641919528036623,
+      0.8510981236637396,
+      0.8657346783288478
     ],
     "dif_lgbm_logreg": [
-      0.006803437992093375,
-      0.0038500034232578084,
-      0.006857177875325138,
-      0.007368424531538076,
-      0.002704228313875068
+      0.005635490398159471,
+      0.0065893163039079106,
+      0.013472124887184522,
+      0.008369194572970251,
+      0.008488569391831402
     ],
-    "dif_media": 0.005516654427217893,
-    "dif_desvio": 0.002095789456805404,
+    "dif_media": 0.008510939110810712,
+    "dif_desvio": 0.003024681625275845,
     "lgbm_vence_em_todos_os_folds": true,
-    "dif_lgbm_menos_sem_idade_media": 0.003731042962974285
+    "dif_lgbm_menos_com_idade_media": -0.0032098411466457534
   },
-  "ablacao_sem_idade": {
+  "ablacao_idade": {
     "lgbm": {
-      "corte_custo": 0.27,
-      "auc_teste": 0.8647870227129114,
-      "ks_teste": 0.5814714037263091,
-      "brier_calibrado": 0.04888429319188488,
-      "lucro_por_proposta": 0.6752903376953713,
-      "taxa_aprovacao": 0.9369791492352488,
-      "inadimplencia_aprovados": 0.04050578654093442,
-      "disparate_impact_min": 0.8900914832586754,
+      "corte_custo": 0.26,
+      "auc_teste": 0.8644123198915261,
+      "ks_teste": 0.5672527981545169,
+      "brier_calibrado": 0.04832803111935922,
+      "lucro_por_proposta": 0.6763750795085535,
+      "taxa_aprovacao": 0.9367279300994276,
+      "inadimplencia_aprovados": 0.040277331046066976,
+      "disparate_impact_min": 0.9004392006029263,
       "tpr_por_faixa": {
-        "<30": 0.9235181644359465,
-        "30–44": 0.9468902865129281,
-        "45–59": 0.9605316149818768,
-        "60+": 0.9866608827675957
+        "<30": 0.9274469541409993,
+        "30–44": 0.9486490309803367,
+        "45–59": 0.961395768575153,
+        "60+": 0.9828101644245142
       },
       "aprovacao_por_faixa": {
-        "<30": 0.8680516563728242,
-        "30–44": 0.9098996060490533,
-        "45–59": 0.9342867825761825,
-        "60+": 0.975238694785437
+        "<30": 0.8750747160789002,
+        "30–44": 0.9117647058823529,
+        "45–59": 0.9328746746002231,
+        "60+": 0.971830985915493
       },
-      "equal_opp_gap_60mais_menos_menor30": 0.0631427183316492,
-      "equal_opp_gap_max_min": 0.0631427183316492,
+      "equal_opp_gap_60mais_menos_menor30": 0.055363210283514874,
+      "equal_opp_gap_max_min": 0.055363210283514874,
       "gap_bootstrap": {
-        "est": 0.0631427183316492,
+        "est": 0.055363210283514874,
         "ci95": [
-          0.04957132210454723,
-          0.0763728598059262
+          0.04215912110905661,
+          0.0693225969244399
         ],
         "ic_contem_zero": false
       }
     },
-    "lgbm_sem_idade": {
-      "corte_custo": 0.255,
-      "auc_teste": 0.8611416473901677,
-      "ks_teste": 0.5726766865877961,
-      "brier_calibrado": 0.04892652058421749,
-      "lucro_por_proposta": 0.6755246159510023,
-      "taxa_aprovacao": 0.9339335319120452,
-      "inadimplencia_aprovados": 0.03967030998029027,
-      "disparate_impact_min": 0.9019491769825779,
+    "lgbm_com_idade": {
+      "corte_custo": 0.27,
+      "auc_teste": 0.8673400050736877,
+      "ks_teste": 0.5760357730467889,
+      "brier_calibrado": 0.048165640722305794,
+      "lucro_por_proposta": 0.6789863077901643,
+      "taxa_aprovacao": 0.938033544240233,
+      "inadimplencia_aprovados": 0.04022127052105639,
+      "disparate_impact_min": 0.8874306497787187,
       "tpr_por_faixa": {
-        "<30": 0.9298916507329509,
-        "30–44": 0.9453529000698812,
-        "45–59": 0.9581151832460733,
-        "60+": 0.9824314065719553
+        "<30": 0.919917864476386,
+        "30–44": 0.9475173291837601,
+        "45–59": 0.9641030783114409,
+        "60+": 0.9861200085415333
       },
       "aprovacao_por_faixa": {
-        "<30": 0.8747894441325098,
-        "30–44": 0.9074850679883085,
-        "45–59": 0.9312020938493176,
-        "60+": 0.969887734760256
+        "<30": 0.8661087866108786,
+        "30–44": 0.9093244284613409,
+        "45–59": 0.935942729639271,
+        "60+": 0.975973487986744
       },
-      "equal_opp_gap_60mais_menos_menor30": 0.05253975583900439,
-      "equal_opp_gap_max_min": 0.05253975583900439,
+      "equal_opp_gap_60mais_menos_menor30": 0.06620214406514724,
+      "equal_opp_gap_max_min": 0.06620214406514724,
       "gap_bootstrap": {
-        "est": 0.05253975583900439,
+        "est": 0.06620214406514724,
         "ci95": [
-          0.03969463751135989,
-          0.06558191863852122
+          0.05295186997893393,
+          0.08039338854231737
         ],
         "ic_contem_zero": false
       }
     },
     "gap_reducao_bootstrap": {
-      "est": 0.010602962492644807,
+      "est": 0.010838933781632365,
       "ci95": [
-        0.0058912152089846655,
-        0.01590560959313173
+        0.004443048061881774,
+        0.016818525457192306
       ],
       "ic_contem_zero": false
     }
@@ -250,41 +250,154 @@
     {
       "perda_mau_aprovado": -3,
       "corte_teorico": 0.4,
-      "corte_otimo_oof": 0.345,
-      "lucro_teste_corte_otimo": 0.7566183607215771,
-      "lucro_teste_aprovar_todos": 0.7319856755580842,
-      "lucro_teste_recusar_todos": -0.9329964188895211,
-      "ganho_pct_sobre_aprovar_todos": 3.365186777010662,
-      "lucro_teste_mantendo_corte_0.270": 0.75119649251983,
-      "lucro_teste_corte_0.5": 0.7504601894307038,
-      "taxa_aprovacao": 0.9624485424545668,
-      "inadimplencia_aprovados": 0.04889244357895469
+      "corte_otimo_oof": 0.4,
+      "lucro_teste_corte_otimo": 0.7635499313715643,
+      "lucro_teste_aprovar_todos": 0.7319138964212781,
+      "lucro_teste_recusar_todos": -0.9329784741053195,
+      "ganho_pct_sobre_aprovar_todos": 4.322371129305217,
+      "corte_base": 0.26,
+      "lucro_teste_mantendo_corte_base": 0.751832881389977,
+      "lucro_teste_corte_0.5": 0.7554484282414382,
+      "taxa_aprovacao": 0.9661879414817046,
+      "inadimplencia_aprovados": 0.04882020720002772
     },
     {
       "perda_mau_aprovado": -5,
       "corte_teorico": 0.2857142857142857,
-      "corte_otimo_oof": 0.27,
-      "lucro_teste_corte_otimo": 0.6752903376953713,
-      "lucro_teste_aprovar_todos": 0.5979785133371264,
-      "lucro_teste_recusar_todos": -0.9329964188895211,
-      "ganho_pct_sobre_aprovar_todos": 12.92886326747635,
-      "lucro_teste_mantendo_corte_0.270": 0.6752903376953713,
-      "lucro_teste_corte_0.5": 0.6384082465945982,
-      "taxa_aprovacao": 0.9369791492352488,
-      "inadimplencia_aprovados": 0.04050578654093442
+      "corte_otimo_oof": 0.26,
+      "lucro_teste_corte_otimo": 0.6763750795085535,
+      "lucro_teste_aprovar_todos": 0.5978708446319172,
+      "lucro_teste_recusar_todos": -0.9329784741053195,
+      "ganho_pct_sobre_aprovar_todos": 13.130634414020953,
+      "corte_base": 0.26,
+      "lucro_teste_mantendo_corte_base": 0.6763750795085535,
+      "lucro_teste_corte_0.5": 0.6457098858424559,
+      "taxa_aprovacao": 0.9367279300994276,
+      "inadimplencia_aprovados": 0.040277331046066976
     },
     {
       "perda_mau_aprovado": -10,
       "corte_teorico": 0.16666666666666666,
-      "corte_otimo_oof": 0.17,
-      "lucro_teste_corte_otimo": 0.5091535861307273,
-      "lucro_teste_aprovar_todos": 0.26296060778473174,
-      "lucro_teste_recusar_todos": -0.9329964188895211,
-      "ganho_pct_sobre_aprovar_todos": 93.62352042764415,
-      "lucro_teste_mantendo_corte_0.270": 0.4855249506342247,
-      "lucro_teste_corte_0.5": 0.35827838950433416,
-      "taxa_aprovacao": 0.8925666856320492,
-      "inadimplencia_aprovados": 0.032022198057669954
+      "corte_otimo_oof": 0.16,
+      "lucro_teste_corte_otimo": 0.5084195373439122,
+      "lucro_teste_aprovar_todos": 0.262763215158515,
+      "lucro_teste_recusar_todos": -0.9329784741053195,
+      "ganho_pct_sobre_aprovar_todos": 93.48961651165753,
+      "corte_base": 0.26,
+      "lucro_teste_mantendo_corte_base": 0.4877305748049948,
+      "lucro_teste_corte_0.5": 0.37136352984500015,
+      "taxa_aprovacao": 0.8960530280204881,
+      "inadimplencia_aprovados": 0.03261600537995965
+    }
+  ],
+  "sensibilidade_revisao": [
+    {
+      "custo_revisao": 0.1,
+      "sensibilidade_analista": 0.3,
+      "especificidade_analista": 0.8,
+      "faixa": [
+        0.26315789473684204,
+        0.29411764705882354
+      ],
+      "pct_revisar": 0.008201934987111244,
+      "taxa_mau_revisar": 0.2571428571428571,
+      "aprovacao_automatica": 0.938033544240233,
+      "lucro_esperado_por_proposta": 0.676783502393626
+    },
+    {
+      "custo_revisao": 0.1,
+      "sensibilidade_analista": 0.5,
+      "especificidade_analista": 0.8,
+      "faixa": [
+        0.17241379310344823,
+        0.3658536585365854
+      ],
+      "pct_revisar": 0.05754745405242543,
+      "taxa_mau_revisar": 0.2600349040139616,
+      "aprovacao_automatica": 0.9029158715811322,
+      "lucro_esperado_por_proposta": 0.6848046600381641
+    },
+    {
+      "custo_revisao": 0.1,
+      "sensibilidade_analista": 0.7,
+      "especificidade_analista": 0.8,
+      "faixa": [
+        0.12820512820512817,
+        0.4838709677419354
+      ],
+      "pct_revisar": 0.10916942854273376,
+      "taxa_mau_revisar": 0.2582030052131248,
+      "aprovacao_automatica": 0.8700746543470256,
+      "lucro_esperado_por_proposta": 0.705443406648589
+    },
+    {
+      "custo_revisao": 0.2,
+      "sensibilidade_analista": 0.3,
+      "especificidade_analista": 0.8,
+      "faixa": null,
+      "pct_revisar": 0.0,
+      "taxa_mau_revisar": null,
+      "aprovacao_automatica": 0.9367279300994276,
+      "lucro_esperado_por_proposta": 0.6763750795085535
+    },
+    {
+      "custo_revisao": 0.2,
+      "sensibilidade_analista": 0.5,
+      "especificidade_analista": 0.8,
+      "faixa": [
+        0.2068965517241379,
+        0.3414634146341464
+      ],
+      "pct_revisar": 0.038699742224900406,
+      "taxa_mau_revisar": 0.2828719723183391,
+      "aprovacao_automatica": 0.9176458772722708,
+      "lucro_esperado_por_proposta": 0.68125272002946
+    },
+    {
+      "custo_revisao": 0.2,
+      "sensibilidade_analista": 0.7,
+      "especificidade_analista": 0.8,
+      "faixa": [
+        0.15384615384615383,
+        0.45161290322580644
+      ],
+      "pct_revisar": 0.08265541829868435,
+      "taxa_mau_revisar": 0.2733900364520049,
+      "aprovacao_automatica": 0.8922366174550568,
+      "lucro_esperado_por_proposta": 0.69633088949148
+    },
+    {
+      "custo_revisao": 0.5,
+      "sensibilidade_analista": 0.3,
+      "especificidade_analista": 0.8,
+      "faixa": null,
+      "pct_revisar": 0.0,
+      "taxa_mau_revisar": null,
+      "aprovacao_automatica": 0.9367279300994276,
+      "lucro_esperado_por_proposta": 0.6763750795085535
+    },
+    {
+      "custo_revisao": 0.5,
+      "sensibilidade_analista": 0.5,
+      "especificidade_analista": 0.8,
+      "faixa": null,
+      "pct_revisar": 0.0,
+      "taxa_mau_revisar": null,
+      "aprovacao_automatica": 0.9367279300994276,
+      "lucro_esperado_por_proposta": 0.6763750795085535
+    },
+    {
+      "custo_revisao": 0.5,
+      "sensibilidade_analista": 0.7,
+      "especificidade_analista": 0.8,
+      "faixa": [
+        0.23076923076923075,
+        0.3548387096774193
+      ],
+      "pct_revisar": 0.031903853235579656,
+      "taxa_mau_revisar": 0.3011542497376705,
+      "aprovacao_automatica": 0.9265843125439389,
+      "lucro_esperado_por_proposta": 0.6794415988751632
     }
   ]
 }

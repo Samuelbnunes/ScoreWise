@@ -10,21 +10,27 @@ for _p in (_APP, _APP.parent / "src"):
 import pandas as pd
 import streamlit as st
 
-from ui.components import begin, br, card_grid, end, require_metrics, section_header
+from ui.components import CALIBRATION_PT, begin, br, card_grid, end, pct, require_metrics, section_header
 from ui.theme import TAGLINE
 
 begin("Sobre")
-test = require_metrics("test_results.json")["test_results.json"]
+m = require_metrics("test_results.json", "curves.json")
+test = m["test_results.json"]
 c = test["cost_matrix"]
+cal_pt = CALIBRATION_PT.get(m["curves.json"].get("calibration_method", "isotonic"), "calibração")
+t3 = test["decisao_3_faixas"]
 
 section_header("Sobre o ScoreWise", f"{TAGLINE}. Projeto acadêmico de modelo de aprovação de crédito com Machine Learning. Protótipo: premissas de custo ilustrativas.")
 
 section_header("Metodologia")
 card_grid([
-    ("", "Dados", "Dataset público <i>Give Me Some Credit</i> (Kaggle, 2011). Duplicadas removidas e anomalias tratadas (idade 0, códigos 96/98, renda nula) antes de qualquer ajuste."),
+    ("", "Dados", "Dataset público <i>Give Me Some Credit</i> (Kaggle, 2011). Duplicadas removidas e anomalias tratadas (idade 0, códigos 96/98, "
+                  "renda nula; renda 0 tratada como não informada) antes de qualquer ajuste."),
     ("", "Sem vazamento", "Divisão 80/20 estratificada antes de tudo. Mediana, clip e escala são aprendidos só no treino, dentro do Pipeline. O teste é usado uma única vez."),
-    ("", "Modelo", "LightGBM com <code>class_weight</code>, validação cruzada 5-fold e calibração isotônica sobre as predições out-of-fold. Comparado a um piso (dummy) e à regressão logística."),
-    ("", "Decisão", "Corte pelo lucro esperado, com faixa de revisão humana. Motivos via SHAP em português simples; a idade não é exibida como motivo."),
+    ("", "Modelo", f"LightGBM sem <code>class_weight</code>, com restrições monotônicas, validação cruzada 5-fold e {cal_pt} sobre as predições "
+                   "out-of-fold. A idade não é usada. Comparado a um piso (dummy) e à regressão logística, nas mesmas condições."),
+    ("", "Decisão", f"Corte pelo lucro esperado e revisão humana de {pct(t3['faixa'][0])} a {pct(t3['faixa'][1])} de PD, faixa em que a revisão vale mais "
+                    "que a decisão automática (revisor ilustrativo). Até 3 motivos distintos via SHAP, em português simples."),
 ])
 
 section_header("Premissas de custo (ilustrativas)", "O dataset não tem valor, prazo nem taxa do empréstimo; dados reais exigiriam esses campos")

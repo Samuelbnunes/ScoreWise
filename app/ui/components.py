@@ -17,6 +17,8 @@ PAGES = [
     ("Sobre", "pages/6_sobre.py"),
 ]
 FOOTER_TEXT = "Protótipo acadêmico · premissas de custo ilustrativas · não usar para decisões reais de crédito"
+# Rótulos do método de calibração gravado no modelo (curves.json -> calibration_method; ADR-16)
+CALIBRATION_PT = {"none": "sem calibrador", "sigmoid": "calibração de Platt", "isotonic": "calibração isotônica"}
 
 
 # ---------- formatação pt-BR ----------
@@ -29,7 +31,7 @@ def pct(x: float, nd: int = 1) -> str:
 
 
 def pd_text(p: float) -> str:
-    """Evita falsa precisão nos extremos (a isotônica satura em 0 e 1)."""
+    """Evita falsa precisão nos extremos (PD muito perto de 0 ou de 1)."""
     if p >= 0.99:
         return "> 99%"
     if p <= 0.01:

@@ -1,4 +1,5 @@
-"""Treino: CV 5-fold -> OOF cruas -> calibrador isotônico -> corte por custo -> fit final -> model.joblib.
+"""Treino: CV 5-fold -> OOF cruas -> calibrador (CALIBRATION_METHOD) -> corte por custo -> fit final -> model.joblib.
+v0.2.0: sem class_weight, sem idade e sem divida_mensal, com restrições monotônicas no LightGBM.
 O conjunto de TESTE não é lido aqui."""
 import json
 import time
@@ -12,20 +13,25 @@ import sklearn
 from lightgbm import LGBMClassifier
 from sklearn.base import clone
 from sklearn.dummy import DummyClassifier
-from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 
+from calibration import fit_calibrator
 from config import (
+    CALIBRATION_METHOD,
     COST_MATRIX,
     CV_FOLDS,
+    LGBM_PARAMS,
     METRICS_DIR,
+    MODEL_EXCLUDED_FEATURES,
     MODEL_PATH,
     MODEL_VERSION,
     MODELS_DIR,
+    MONOTONE,
+    MONOTONE_METHOD,
     RAW_FILE,
-    REVIEW_BAND,
+    REVIEW_PARAMS,
     SEED,
 )
 from data import clean_static, deduplicate, file_sha256, load_raw, split
@@ -35,45 +41,45 @@ from evaluate import (
     cost_threshold,
     f1_threshold,
     profit_at,
+    review_band,
     theoretical_threshold,
 )
-from features import build_preprocessor
+from features import build_preprocessor, output_feature_names
 
 METRIC_KEYS = ["auc", "gini", "ks", "pr_auc", "brier"]
 
 
-def build_candidates() -> dict:
+def monotone_vector(drop_cols: tuple = MODEL_EXCLUDED_FEATURES) -> list[int]:
+    """MONOTONE alinhado à ordem das colunas que o pré-processador entrega ao LightGBM."""
+    return [MONOTONE.get(c, 0) for c in output_feature_names(drop_cols)]
+
+
+def build_lgbm(drop_cols: tuple = MODEL_EXCLUDED_FEATURES, **override) -> LGBMClassifier:
+    kw = dict(
+        **LGBM_PARAMS,
+        monotone_constraints=monotone_vector(drop_cols),
+        monotone_constraints_method=MONOTONE_METHOD,
+        random_state=SEED,
+        n_jobs=-1,
+        deterministic=True,  # resultados idênticos entre execuções
+        force_row_wise=True,
+        verbose=-1,
+    )
+    kw.update(override)
+    return LGBMClassifier(**kw)
+
+
+def build_candidates(drop_cols: tuple = MODEL_EXCLUDED_FEATURES) -> dict:
+    """Mesmas variáveis para os três candidatos. Sem class_weight (ADR-15)."""
     return {
-        "dummy": Pipeline([("pre", build_preprocessor("tree")), ("clf", DummyClassifier(strategy="prior"))]),
+        "dummy": Pipeline([("pre", build_preprocessor("tree", drop_cols)), ("clf", DummyClassifier(strategy="prior"))]),
         "logreg": Pipeline(
             [
-                ("pre", build_preprocessor("linear")),
-                ("clf", LogisticRegression(class_weight="balanced", max_iter=1000, random_state=SEED)),
+                ("pre", build_preprocessor("linear", drop_cols)),
+                ("clf", LogisticRegression(max_iter=1000, random_state=SEED)),
             ]
         ),
-        "lgbm": Pipeline(
-            [
-                ("pre", build_preprocessor("tree")),
-                (
-                    "clf",
-                    LGBMClassifier(
-                        n_estimators=500,
-                        learning_rate=0.03,
-                        num_leaves=31,
-                        min_child_samples=100,
-                        subsample=0.8,
-                        subsample_freq=1,
-                        colsample_bytree=0.8,
-                        class_weight="balanced",
-                        random_state=SEED,
-                        n_jobs=-1,
-                        deterministic=True,  # resultados idênticos entre execuções
-                        force_row_wise=True,
-                        verbose=-1,
-                    ),
-                ),
-            ]
-        ),
+        "lgbm": Pipeline([("pre", build_preprocessor("tree", drop_cols)), ("clf", build_lgbm(drop_cols))]),
     }
 
 
@@ -113,7 +119,7 @@ def main():
     cand_out = {}
     for name, pipe in candidates.items():
         # Calibrador ajustado nas OOF cruas: cada probabilidade vem de um modelo que não viu aquela linha.
-        calibrator = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(oof[name], y_tr)
+        calibrator = fit_calibrator(CALIBRATION_METHOD, oof[name], y_tr)
         pd_oof = calibrator.predict(oof[name])
         thresholds = {
             "cost": cost_threshold(y_tr, pd_oof),
@@ -125,6 +131,8 @@ def main():
         cv[name]["thresholds"] = thresholds
         cv[name]["profit_per_proposal_oof_at_cost"] = profit_at(y_tr, pd_oof, thresholds["cost"]) / len(y_tr)
         final = clone(pipe).fit(X_tr, y_tr)
+        assert list(final[:-1].get_feature_names_out()) == output_feature_names(MODEL_EXCLUDED_FEATURES), \
+            "ordem das colunas diverge de output_feature_names (restrições monotônicas desalinhadas)"
         cand_out[name] = {"pipeline": final, "calibrator": calibrator, "thresholds": thresholds}
 
     joblib.dump(cand_out, CANDIDATES_PATH)
@@ -136,10 +144,16 @@ def main():
         "raw_pipeline": b["pipeline"],
         "threshold": b["thresholds"]["cost"],
         "thresholds": b["thresholds"],
-        "review_band": REVIEW_BAND,
+        "review_band": review_band(COST_MATRIX, REVIEW_PARAMS),  # (lo, hi) ou None (ADR-20)
+        "review_params": dict(REVIEW_PARAMS),
         "feature_names_in": list(X_tr.columns),
         "feature_names_out": list(b["pipeline"][:-1].get_feature_names_out()),
         "metrics_cv": cv[best],
+        "calibration_method": CALIBRATION_METHOD,
+        "excluded_features": list(MODEL_EXCLUDED_FEATURES),
+        "monotone_constraints": {c: v for c, v in zip(output_feature_names(MODEL_EXCLUDED_FEATURES), monotone_vector()) if v},
+        "monotone_method": MONOTONE_METHOD,
+        "lgbm_params": dict(LGBM_PARAMS),
         "cost_matrix": COST_MATRIX,
         "model_version": MODEL_VERSION,
         "trained_at": datetime.now(timezone.utc).isoformat(),
@@ -162,6 +176,9 @@ def main():
 
     t = bundle["thresholds"]
     print(f"corte por custo (OOF calibrado): {t['cost']:.3f} | F1: {t['f1']:.3f} | teórico: {theo:.4f}")
+    rb = bundle["review_band"]
+    print(f"faixa REVISAR por valor esperado: {'vazia (decisão em 2 faixas)' if rb is None else f'[{rb[0]:.3f}; {rb[1]:.3f}]'}"
+          f" | parâmetros ilustrativos: {REVIEW_PARAMS}")
     print("feature_names_out:", bundle["feature_names_out"])
     print(f"salvo: {MODEL_PATH} | tempo total: {time.time() - t0:.1f}s")
 

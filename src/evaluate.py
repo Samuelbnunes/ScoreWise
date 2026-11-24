@@ -17,7 +17,7 @@ from sklearn.metrics import (
     roc_curve,
 )
 
-from config import COST_MATRIX, FIGURES_DIR, METRICS_DIR, MODELS_DIR, MODEL_PATH
+from config import COST_MATRIX, FIGURES_DIR, METRICS_DIR, MODELS_DIR, MODEL_PATH, REVIEW_PARAMS, REVIEW_SENSITIVITY
 from data import TARGET_PT, clean_static, deduplicate, load_raw, split
 
 CANDIDATES_PATH = MODELS_DIR / "candidates.joblib"
@@ -25,6 +25,7 @@ THRESHOLD_GRID = np.round(np.arange(0.01, 0.9901, 0.005), 3)
 
 COLORS = {"dummy": "#8a8a8a", "logreg": "#e08a1e", "lgbm": "#2a6f97"}
 LABELS = {"dummy": "Dummy (prior)", "logreg": "Regressão logística", "lgbm": "LightGBM"}
+CALIBRATION_LABELS = {"none": "sem calibrador", "sigmoid": "Platt (sigmoide)", "isotonic": "isotônica"}
 
 
 def compute_metrics(y, p) -> dict:
@@ -84,6 +85,80 @@ def f1_threshold(y, pd_) -> float:
     fn = ((~pred) & (y == 1)[:, None]).sum(0)
     f1 = 2 * tp / np.maximum(2 * tp + fp + fn, 1)
     return float(THRESHOLD_GRID[int(np.argmax(f1))])
+
+
+def review_band(c=COST_MATRIX, params=REVIEW_PARAMS):
+    """Faixa de PD [lo, hi] em que revisar tem valor esperado maior que decidir automaticamente (ADR-20).
+    Revisor: aprova a fração `especificidade_analista` dos bons e recusa a fração `sensibilidade_analista` dos maus,
+    a um custo fixo `custo_revisao` por caso. Valor de revisar com PD p:
+        V(p) = (1-p)*g + p*b - custo,  g = e*ag + (1-e)*rg,  b = s*rb + (1-s)*ab
+    Revisar > aprovar  <=>  p > lo;  revisar > recusar  <=>  p < hi. Devolve None se a revisão nunca compensa."""
+    s, e, k = params["sensibilidade_analista"], params["especificidade_analista"], params["custo_revisao"]
+    ag, ab, rg, rb = c["approve_good"], c["approve_bad"], c["reject_good"], c["reject_bad"]
+    g = e * ag + (1 - e) * rg
+    b = s * rb + (1 - s) * ab
+    den_lo = (b - ab) + (ag - g)
+    den_hi = (g - rg) + (rb - b)
+    if den_lo <= 0 or den_hi <= 0:
+        return None
+    lo = max(0.0, (ag - g + k) / den_lo)
+    hi = min(1.0, (g - rg - k) / den_hi)
+    return (float(lo), float(hi)) if lo < hi else None
+
+
+def band_or_cut(band, t):
+    """Faixa vazia -> decisão em 2 faixas no corte t (lo = hi = t)."""
+    return (float(band[0]), float(band[1])) if band else (float(t), float(t))
+
+
+def portfolio_3faixas(y, pd_, band, t, c=COST_MATRIX, params=REVIEW_PARAMS) -> dict:
+    """Decisão em 3 faixas: volumes, taxa de mau por faixa e lucro ESPERADO com o revisor ilustrativo."""
+    y, pd_ = np.asarray(y), np.asarray(pd_)
+    lo, hi = band_or_cut(band, t)
+    apr, rec = pd_ < lo, pd_ > hi
+    rev = ~apr & ~rec
+    por = {}
+    for nome, m in (("APROVAR", apr), ("REVISAR", rev), ("RECUSAR", rec)):
+        por[nome] = {"n": int(m.sum()), "pct": float(m.mean()), "taxa_mau": float(y[m].mean()) if m.any() else None,
+                     "maus": int(y[m].sum()), "bons": int((1 - y[m]).sum())}
+    s, e, k = params["sensibilidade_analista"], params["especificidade_analista"], params["custo_revisao"]
+    good, bad = y == 0, y == 1
+    auto = ((apr & good).sum() * c["approve_good"] + (apr & bad).sum() * c["approve_bad"]
+            + (rec & good).sum() * c["reject_good"] + (rec & bad).sum() * c["reject_bad"])
+    n_rev_good, n_rev_bad = int((rev & good).sum()), int((rev & bad).sum())
+    revisao = (n_rev_good * (e * c["approve_good"] + (1 - e) * c["reject_good"])
+               + n_rev_bad * (s * c["reject_bad"] + (1 - s) * c["approve_bad"]) - k * int(rev.sum()))
+    n = len(y)
+    return {
+        "faixa": [lo, hi],
+        "faixa_vazia": band is None,
+        "parametros_revisao": dict(params),
+        "por_faixa": por,
+        "aprovacao_automatica": float(apr.mean()),
+        "inadimplencia_aprovados_automaticos": float(y[apr].mean()) if apr.any() else float("nan"),
+        "lucro_esperado_por_proposta": float((auto + revisao) / n),
+        "referencias_por_proposta": {
+            "revisar_todos_aprovados": float((auto + n_rev_good * c["approve_good"] + n_rev_bad * c["approve_bad"]) / n),
+            "revisar_todos_recusados": float((auto + n_rev_good * c["reject_good"] + n_rev_bad * c["reject_bad"]) / n),
+            "revisor_perfeito_sem_custo": float((auto + n_rev_good * c["approve_good"] + n_rev_bad * c["reject_bad"]) / n),
+        },
+    }
+
+
+def review_sensitivity(y, pd_, t, grid=REVIEW_SENSITIVITY, c=COST_MATRIX) -> list:
+    """Faixa, volume e lucro esperado para cada combinação dos parâmetros ilustrativos da revisão."""
+    rows = []
+    for k in grid["custo_revisao"]:
+        for s in grid["sensibilidade_analista"]:
+            for e in grid["especificidade_analista"]:
+                p = {"custo_revisao": k, "sensibilidade_analista": s, "especificidade_analista": e}
+                band = review_band(c, p)
+                r = portfolio_3faixas(y, pd_, band, t, c, p)
+                rows.append({**p, "faixa": r["faixa"] if band else None, "pct_revisar": r["por_faixa"]["REVISAR"]["pct"],
+                             "taxa_mau_revisar": r["por_faixa"]["REVISAR"]["taxa_mau"],
+                             "aprovacao_automatica": r["aprovacao_automatica"],
+                             "lucro_esperado_por_proposta": r["lucro_esperado_por_proposta"]})
+    return rows
 
 
 def portfolio_stats(y, pd_, t) -> dict:
@@ -152,6 +227,8 @@ def main():
         "teorico_0.286": th["theoretical"],
     }
     rules_test = {k: portfolio_stats(y, cal[best], t) for k, t in rules.items()}
+    tres_faixas = portfolio_3faixas(y, cal[best], bundle.get("review_band"), th["cost"],
+                                    params=bundle.get("review_params", REVIEW_PARAMS))
     always_approve = profit_at(y, np.zeros_like(y, dtype=float), 1.01)
     always_reject = profit_at(y, np.zeros_like(y, dtype=float), 0.0)
 
@@ -161,6 +238,7 @@ def main():
         "best_model": best,
         "models": results,
         "cut_rules_final_model": rules_test,
+        "decisao_3_faixas": tres_faixas,
         "baselines_policy": {
             "aprovar_todos_profit_per_proposal": always_approve / len(y),
             "recusar_todos_profit_per_proposal": always_reject / len(y),
@@ -185,6 +263,14 @@ def main():
             f"| {k} | {s['threshold']:.3f} | {s['profit_per_proposal']:.4f} | {s['approval_rate']:.2%} "
             f"| {s['default_rate_approved']:.2%} |"
         )
+    lo3, hi3 = tres_faixas["faixa"]
+    L += ["", f"Decisão em 3 faixas (produto): REVISAR se {lo3:.3f} ≤ PD ≤ {hi3:.3f}"
+              f"{' (faixa vazia: decisão em 2 faixas)' if tres_faixas['faixa_vazia'] else ''}. "
+              f"Lucro esperado por proposta com o revisor ilustrativo: {tres_faixas['lucro_esperado_por_proposta']:.4f}.", "",
+          "| Faixa | Propostas | % | Taxa de mau |", "|---|---|---|---|"]
+    for k, s in tres_faixas["por_faixa"].items():
+        taxa = "—" if s["taxa_mau"] is None else f"{s['taxa_mau']:.2%}"
+        L.append(f"| {k} | {s['n']} | {s['pct']:.2%} | {taxa} |")
     (METRICS_DIR / "test_results.md").write_text("\n".join(L) + "\n", encoding="utf-8")
 
     # --- figuras ---
@@ -223,7 +309,8 @@ def main():
     _save(fig, "ks.png")
 
     fig, ax = plt.subplots(figsize=(5.5, 5))
-    for arr, lab, col in ((raw[best], "Antes (probabilidade crua)", "#c1443c"), (cal[best], "Depois (isotônica)", "#2a6f97")):
+    cal_lab = f"Depois ({CALIBRATION_LABELS.get(bundle.get('calibration_method', 'isotonic'), 'calibrado')})"
+    for arr, lab, col in ((raw[best], "Antes (probabilidade crua)", "#c1443c"), (cal[best], cal_lab, "#2a6f97")):
         frac, mean_p = calibration_curve(y, arr, n_bins=10, strategy="quantile")
         ax.plot(mean_p, frac, "o-", color=col, lw=2, label=lab)
     ax.plot([0, 1], [0, 1], ls=":", color="gray", label="Calibração perfeita")
@@ -267,7 +354,8 @@ def main():
         idx = np.unique(np.linspace(0, len(arrs[0]) - 1, min(n, len(arrs[0]))).astype(int))
         return [np.round(np.asarray(a)[idx], 5).tolist() for a in arrs]
 
-    curves = {"model": best, "roc": {}, "pr": {}, "calibration": {}, "profit": {}, "ks": {}}
+    curves = {"model": best, "calibration_method": bundle.get("calibration_method", "isotonic"),
+              "roc": {}, "pr": {}, "calibration": {}, "profit": {}, "ks": {}}
     for n in raw:
         fpr, tpr, _ = roc_curve(y, raw[n])
         curves["roc"][n] = dict(zip(("fpr", "tpr"), thin(fpr, tpr)), auc=float(results[n]["auc"]))

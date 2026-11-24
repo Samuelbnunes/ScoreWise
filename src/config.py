@@ -14,9 +14,49 @@ SEED = 42
 TARGET = "SeriousDlqin2yrs"
 TEST_SIZE = 0.20
 CV_FOLDS = 5
-REVIEW_BAND = 0.05  # δ da faixa de revisão humana (seção 3.4)
-MODEL_VERSION = "0.1.0"
+# Faixa REVISAR por valor esperado (ADR-20): revisar só onde a análise humana vale mais que decidir automaticamente.
+# Revisor ILUSTRATIVO (o dataset não tem dados de revisão humana), nas mesmas unidades de COST_MATRIX:
+#   custo_revisao: custo de uma análise; sensibilidade_analista: fração dos maus revisados que o analista recusa;
+#   especificidade_analista: fração dos bons revisados que o analista aprova.
+# Com os valores abaixo e a matriz +1/-5/-1/0, a faixa é [0,207; 0,341] (o corte teórico 2/7 fica dentro dela).
+REVIEW_PARAMS = {"custo_revisao": 0.2, "sensibilidade_analista": 0.5, "especificidade_analista": 0.8}
+REVIEW_SENSITIVITY = {"custo_revisao": (0.1, 0.2, 0.5), "sensibilidade_analista": (0.3, 0.5, 0.7), "especificidade_analista": (0.8,)}
+MODEL_VERSION = "0.2.0"
 AGE_BINS = [18, 30, 45, 60, 120]
+
+# --- Modelo v0.2.0 (ADR-15 a ADR-18). Decisões tomadas na validação cruzada do treino (E2 do PLANO_MELHORIAS.md).
+# Fora do modelo: idade (atributo sensível, ADR-18) e divida_mensal (= razão × renda; conflita com a monotonia
+# decrescente da renda e não perde AUC ao sair: 0,8597 sem × 0,8595 com).
+MODEL_EXCLUDED_FEATURES = ("idade", "divida_mensal")
+# Sem class_weight (ADR-15): mesma AUC e probabilidade já próxima da calibrada. Hiperparâmetros do projeto mantidos
+# (a busca aleatória ganhou só +0,0021 de AUC, abaixo do mínimo de 0,0025 exigido no plano).
+LGBM_PARAMS = dict(
+    n_estimators=500,
+    learning_rate=0.03,
+    num_leaves=31,
+    min_child_samples=100,
+    subsample=0.8,
+    subsample_freq=1,
+    colsample_bytree=0.8,
+)
+# Restrições monotônicas (ADR-17): +1 = o risco não diminui quando a variável aumenta; -1 = não aumenta.
+# Variáveis ausentes daqui ficam sem restrição (inclusive a flag sem_uso_rotativo, que capta o risco da utilização zero).
+MONOTONE = {
+    "atrasos_30_59": 1,
+    "atrasos_60_89": 1,
+    "atrasos_90": 1,
+    "total_atrasos": 1,
+    "teve_atraso_grave": 1,
+    "atraso_codigo_especial": 1,
+    "utilizacao_limite": 1,
+    "razao_divida": 1,
+    "renda_mensal": -1,
+    "renda_per_capita": -1,
+}
+MONOTONE_METHOD = "intermediate"  # AUC CV 0,8597 × 0,8592 do "basic", mesma coerência
+# Calibração (ADR-16): "none" | "sigmoid" | "isotonic". Sem calibrador, o ECE OOF foi 0,0034 (> 0,002 do critério A4);
+# com Platt, 0,0019. A isotônica foi descartada por gerar PD em degraus.
+CALIBRATION_METHOD = "sigmoid"
 
 # Premissas ILUSTRATIVAS (o dataset não tem valor, prazo nem taxa do empréstimo).
 COST_MATRIX = {
@@ -106,6 +146,7 @@ FEATURE_LABELS_PT = {
     "divida_mensal": "Dívida mensal estimada",
     "renda_ausente": "Renda não informada",
     "atraso_codigo_especial": "Código especial de atraso",
+    "sem_uso_rotativo": "Sem uso de crédito rotativo",
 }
 
 # Textos dos reason codes (tabela da seção 6.6).
@@ -122,8 +163,18 @@ REASON_TEXTS = {
     "renda_per_capita": "Renda baixa em relação ao perfil",
     "renda_ausente": "Renda não informada",
     "linhas_abertas": "Número de linhas de crédito abertas",
-    # Fora da tabela 6.6: necessários para que toda recusa tenha 3 motivos (DoD do E5).
+    # Fora da tabela 6.6: fatores que também podem aumentar o risco (desde a v0.2 não há obrigação de completar 3 motivos).
     "atraso_codigo_especial": "Registro de atraso com situação especial no histórico",
     "dependentes": "Número de dependentes associado a maior risco",
     "financ_imobiliarios": "Perfil de financiamentos imobiliários associado a maior risco",
+    "sem_uso_rotativo": "Ausência de uso de crédito rotativo no histórico",  # texto aprovado pelo grupo (E1)
+}
+# Com renda não informada, razao_divida é a dívida mensal em VALOR (semântica do dataset; ADR-19).
+REASON_TEXT_DIVIDA_SEM_RENDA = "Valor elevado de dívidas mensais"
+
+# Motivos agrupados (ADR-21): o SHAP de um grupo é a soma do SHAP das variáveis (aditividade) e vira UM motivo.
+# Atrasos: o texto segue o atraso mais grave presente (90+ > 60-89 > 30-59). Renda: um único texto.
+REASON_GROUPS = {
+    "atrasos": ("atrasos_30_59", "atrasos_60_89", "atrasos_90", "total_atrasos", "teve_atraso_grave"),
+    "renda": ("renda_mensal", "renda_per_capita"),
 }
